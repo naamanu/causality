@@ -12,7 +12,7 @@ cut anything that threatens the timeline and note it here.
 
 ## Pipeline stretch
 - **Per-card incremental streaming** — today `/analyze` streams one SSE `hypothesis` event per card, but all cards are produced by one structured call before emitting. True token-by-token card streaming (parsing `input_json_delta` as each hypothesis object completes) would let cards literally type in. Deferred — fragile partial-JSON parsing vs. weekend budget.
-- **Agentic verification loop** — let the model call `query_traces(filter)` (wraps `store.query_spans`/`query_logs`) to test a hypothesis against the data before finalizing rank.
+- **Stream the agentic loop's intermediate steps** — `?verify=true` runs the `query_traces` loop server-side but only streams the final hypotheses. Surfacing each `query_traces` call as an SSE event would make the agent's reasoning visible in the UI (great demo material).
 
 ## Nice-to-haves if time remains
 - More scenarios (memory leak / OOM, retry storm, clock skew, partial outage).
