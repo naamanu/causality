@@ -87,6 +87,21 @@ class Hypothesis(BaseModel):
     evidence_log_ids: List[str] = Field(default_factory=list)
 
 
+class AIMetrics(BaseModel):
+    """Self-instrumentation for one hypothesis run (CLAUDE.md AI pipeline #5).
+
+    Observability *of* the AI, surfaced in the UI's AIMetricsBar — the meta-flex.
+    """
+
+    model: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+    latency_ms: int = 0
+    # How many tool-call round-trips the model made (1 for the single structured call).
+    tool_calls: int = 0
+    hypothesis_count: int = 0
+
+
 class Incident(BaseModel):
     id: str
     title: str

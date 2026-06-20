@@ -10,6 +10,7 @@ Run:  python -m app.eval
 
 from __future__ import annotations
 
+import os
 from typing import List, Optional
 
 from .models import Hypothesis, RootCause, ScenarioBundle
@@ -67,10 +68,31 @@ def run() -> int:
             print(f"        ! {p}")
 
     print("-" * 56)
-    print("Hypothesis scoring: PENDING (engine not wired yet — Saturday #4).")
-    print("Once wired, this prints: scenario | top hypothesis | match? | confidence")
+
+    # Score the live engine when a key is available; otherwise stop at integrity.
+    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        print("Hypothesis scoring: SKIPPED (set ANTHROPIC_API_KEY to score the engine).")
+        print("=" * 56 + "\n")
+        return 0 if integrity_ok else 1
+
+    from .pipeline import generate_hypotheses
+    from .store import store
+
+    store.load_seeds()
+    print(f"{'scenario':<18} {'top hypothesis':<40} match  conf")
+    matched = 0
+    for key, bundle in bundles.items():
+        hyps, _ = generate_hypotheses(bundle.incident.id)
+        top = hyps[0] if hyps else None
+        score = score_top_hypothesis(top, bundle.root_cause)
+        matched += int(score["match"])
+        title = (top.title[:38] + "…") if top and len(top.title) > 39 else (top.title if top else "—")
+        conf = f"{top.confidence:.2f}" if top else "—"
+        print(f"{key:<18} {title:<40} {'✓' if score['match'] else '✗':<5} {conf}")
+    print("-" * 56)
+    print(f"Score: {matched}/{len(bundles)} top hypotheses matched the known root cause.")
     print("=" * 56 + "\n")
-    return 0 if integrity_ok else 1
+    return 0 if integrity_ok and matched == len(bundles) else 1
 
 
 if __name__ == "__main__":
