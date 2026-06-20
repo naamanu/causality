@@ -26,7 +26,8 @@ over an interactive trace timeline you can drill into.
 | Self-instrumentation (tokens / latency / tool-calls) | ✅ done (`AIMetrics`, `GET /incidents/{id}/metrics`) |
 | Eval harness + scorecard (`app/eval.py`) | ✅ done (seed validation; scores the engine when `ANTHROPIC_API_KEY` is set) |
 | Agentic verification loop (`query_traces`) | ✅ done (`POST /incidents/{id}/analyze?verify=true`) |
-| Frontend | ⛔ not started (Sunday) |
+| Frontend shell + data/streaming layer (`frontend/`) | ✅ done (build unverified — see note) |
+| TraceWaterfall · IncidentTimeline · HypothesisList animation · CommandPalette · AIMetricsBar | ⏳ stacked PRs in progress |
 
 ## Seed scenarios
 
@@ -56,3 +57,22 @@ Key endpoints: `GET /scenarios`, `GET /incidents/{id}`, `GET /incidents/{id}/spa
 `GET /incidents/{id}/logs`, `POST /incidents/{id}/analyze` (SSE: `hypothesis`* →
 `metrics` → `done`; add `?verify=true` for the agentic loop),
 `GET /incidents/{id}/metrics`, `GET /incidents/{id}/hypotheses`.
+
+## Frontend (`frontend/`)
+
+React + TypeScript + Vite + Tailwind. Auto-loads the default scenario, renders the
+incident header + a proportional span view, and streams hypotheses from `/analyze`
+over SSE (`useAnalyzeStream` parses the event stream by hand since the endpoint is a
+POST). Deliberate empty / loading / error states. Monospace-meets-editorial type
+(JetBrains Mono + Newsreader).
+
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:5173 (backend must be on :8000)
+npm run build      # tsc --noEmit && vite build
+```
+
+> ⚠️ **Build not yet verified** — the environment this was authored in blocks npm
+> registry access, so `npm install` / `tsc` / `vite build` haven't been run. Code is
+> reviewed by hand; run `npm run build` locally to confirm before deploying.
