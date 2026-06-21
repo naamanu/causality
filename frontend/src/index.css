@@ -46,3 +46,11 @@
     animation: shimmer 1.4s infinite;
   }
 }
+
+/* Defined here (not just in tailwind.config) so the shimmer animation always
+   exists — Tailwind only emits keyframes for animations used as utilities. */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}

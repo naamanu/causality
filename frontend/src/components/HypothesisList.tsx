@@ -111,7 +111,7 @@ function MetricsFooter({ metrics }: { metrics: AIMetrics }) {
 
 function EmptyState() {
   return (
-    <div className="flex h-full min-h-48 flex-col items-center justify-center rounded-lg border border-dashed border-ink-800 p-8 text-center">
+    <div className="flex h-full min-h-[12rem] flex-col items-center justify-center rounded-lg border border-dashed border-ink-800 p-8 text-center">
       <p className="font-serif text-lg text-zinc-300">Ready when you are.</p>
       <p className="mt-1 max-w-xs text-sm text-zinc-500">
         Run the analysis to stream ranked root-cause hypotheses, each backed by the
