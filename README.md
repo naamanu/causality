@@ -22,8 +22,10 @@ over an interactive trace timeline you can drill into.
 | 4 seed scenarios (`app/seeds/`) | ✅ done |
 | Ingest + query layer (`app/store.py`, `/ingest`, `/spans`) | ✅ done |
 | API serving seeds (`app/main.py`) | ✅ done |
-| AI hypothesis pipeline (structured output + streaming) | ⏳ stubbed (`/incidents/{id}/analyze`) |
-| Eval harness + scorecard (`app/eval.py`) | ⏳ skeleton + seed validation |
+| AI hypothesis pipeline (structured output + SSE streaming) | ✅ done (`app/pipeline.py`, `POST /incidents/{id}/analyze`) |
+| Self-instrumentation (tokens / latency / tool-calls) | ✅ done (`AIMetrics`, `GET /incidents/{id}/metrics`) |
+| Eval harness + scorecard (`app/eval.py`) | ✅ done (seed validation; scores the engine when `ANTHROPIC_API_KEY` is set) |
+| Agentic verification loop (`query_traces`) | ⏳ stretch (store layer ready) |
 | Frontend | ⛔ not started (Sunday) |
 
 ## Seed scenarios
@@ -46,5 +48,10 @@ uvicorn app.main:app --reload         # API on http://localhost:8000  (/docs for
 python -m app.eval                    # seed integrity + scorecard skeleton
 ```
 
+Set `ANTHROPIC_API_KEY` to enable the hypothesis engine (`claude-sonnet-4-6`,
+override with `CAUSALITY_MODEL`). Without a key, `/analyze` streams a clean
+`error` event and the eval harness stops after seed validation.
+
 Key endpoints: `GET /scenarios`, `GET /incidents/{id}`, `GET /incidents/{id}/spans`,
-`GET /incidents/{id}/logs`, `POST /incidents/{id}/analyze` (stub).
+`GET /incidents/{id}/logs`, `POST /incidents/{id}/analyze` (SSE: `hypothesis`* →
+`metrics` → `done`), `GET /incidents/{id}/metrics`, `GET /incidents/{id}/hypotheses`.

@@ -10,6 +10,10 @@ cut anything that threatens the timeline and note it here.
 - **Multi-trace incidents** — scenarios are single-trace today; the model (`Incident.trace_ids`) already supports many.
 - **Auth / multi-tenant** — none; it's a demo.
 
+## Pipeline stretch
+- **Per-card incremental streaming** — today `/analyze` streams one SSE `hypothesis` event per card, but all cards are produced by one structured call before emitting. True token-by-token card streaming (parsing `input_json_delta` as each hypothesis object completes) would let cards literally type in. Deferred — fragile partial-JSON parsing vs. weekend budget.
+- **Agentic verification loop** — let the model call `query_traces(filter)` (wraps `store.query_spans`/`query_logs`) to test a hypothesis against the data before finalizing rank.
+
 ## Nice-to-haves if time remains
 - More scenarios (memory leak / OOM, retry storm, clock skew, partial outage).
 - Self-instrumentation persistence + historical AI-metrics view (beyond last-run bar).

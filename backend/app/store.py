@@ -32,6 +32,9 @@ class Store:
         self.logs: Dict[str, LogLine] = {}
         # scenario_key -> bundle, kept for the eval harness (ground truth lives here).
         self.bundles: Dict[str, ScenarioBundle] = {}
+        # Last AI run per incident_id, for the metrics bar + eval harness.
+        self.last_hypotheses: Dict[str, list] = {}
+        self.last_metrics: Dict[str, object] = {}
 
     def load_seeds(self) -> None:
         for key, bundle in seeds.build_all().items():

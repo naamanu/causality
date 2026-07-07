@@ -8,12 +8,14 @@ explicit for the frontend.
 
 from __future__ import annotations
 
-from typing import List, Optional
+import json
+from typing import Iterator, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
-from .models import Incident, LogLine, ScenarioBundle, Span, Status
+from .models import AIMetrics, Hypothesis, Incident, LogLine, ScenarioBundle, Span, Status
 from .store import store
 
 app = FastAPI(title="Causality", version="0.1.0",
@@ -107,18 +109,51 @@ def ingest(bundle: ScenarioBundle) -> dict:
     return {"ingested": bundle.scenario_key, "spans": len(bundle.spans)}
 
 
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
 @app.post("/incidents/{incident_id}/analyze")
-def analyze(incident_id: str) -> dict:
-    """STUB — wired in Saturday #4. Will stream ranked `Hypothesis` objects from
-    a Claude tool-call over the assembled context. Returns the context for now so
-    the contract is visible."""
-    ctx = store.assemble_context(incident_id)
-    if not ctx:
+def analyze(incident_id: str) -> StreamingResponse:
+    """Run the hypothesis pipeline and stream results to the client as SSE.
+
+    Emits one `hypothesis` event per ranked card (so the UI can animate them in),
+    then a `metrics` event (tokens / latency / tool-calls), then `done`. Errors
+    surface as an `error` event rather than a broken stream.
+    """
+    if store.get_incident(incident_id) is None:
         raise HTTPException(404, f"unknown incident {incident_id}")
-    return {
-        "incident_id": incident_id,
-        "status": "not_implemented",
-        "note": "hypothesis pipeline pending (Saturday #4: structured output + streaming)",
-        "context_span_count": len(ctx["spans"]),
-        "context_log_count": len(ctx["logs"]),
-    }
+
+    # Import here so a missing SDK degrades to a clean error event, not an import-time crash.
+    from .pipeline import generate_hypotheses
+
+    def gen() -> Iterator[str]:
+        try:
+            hyps, metrics = generate_hypotheses(incident_id)
+        except RuntimeError as e:
+            yield _sse("error", {"message": str(e)})
+            return
+        for h in hyps:
+            yield _sse("hypothesis", h.model_dump())
+        yield _sse("metrics", metrics.model_dump())
+        yield _sse("done", {"incident_id": incident_id, "count": len(hyps)})
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+@app.get("/incidents/{incident_id}/metrics", response_model=AIMetrics)
+def last_metrics(incident_id: str) -> AIMetrics:
+    """AIMetricsBar source — self-instrumentation for the most recent run."""
+    m = store.last_metrics.get(incident_id)
+    if m is None:
+        raise HTTPException(404, f"no run recorded for {incident_id}")
+    return m
+
+
+@app.get("/incidents/{incident_id}/hypotheses", response_model=List[Hypothesis])
+def last_hypotheses(incident_id: str) -> List[Hypothesis]:
+    """Cached hypotheses from the most recent run (non-streaming fetch)."""
+    h = store.last_hypotheses.get(incident_id)
+    if h is None:
+        raise HTTPException(404, f"no run recorded for {incident_id}")
+    return h
