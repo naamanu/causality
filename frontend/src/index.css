@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-ink-950 font-mono antialiased;
+    color: #e7e9ee;
+  }
+  /* thin, unobtrusive scrollbars to match the editorial tone */
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-ink-700 rounded-full;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  /* loading shimmer for skeleton blocks */
+  .skeleton {
+    @apply relative overflow-hidden bg-ink-800 rounded;
+  }
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.05),
+      transparent
+    );
+    transform: translateX(-100%);
+    animation: shimmer 1.4s infinite;
+  }
+}
+
+/* Defined here (not just in tailwind.config) so the shimmer animation always
+   exists — Tailwind only emits keyframes for animations used as utilities. */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
