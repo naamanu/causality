@@ -25,7 +25,7 @@ over an interactive trace timeline you can drill into.
 | AI hypothesis pipeline (structured output + SSE streaming) | ✅ done (`app/pipeline.py`, `POST /incidents/{id}/analyze`) |
 | Self-instrumentation (tokens / latency / tool-calls) | ✅ done (`AIMetrics`, `GET /incidents/{id}/metrics`) |
 | Eval harness + scorecard (`app/eval.py`) | ✅ done (seed validation; scores the engine when `ANTHROPIC_API_KEY` is set) |
-| Agentic verification loop (`query_traces`) | ⏳ stretch (store layer ready) |
+| Agentic verification loop (`query_traces`) | ✅ done (`POST /incidents/{id}/analyze?verify=true`) |
 | Frontend | ⛔ not started (Sunday) |
 
 ## Seed scenarios
@@ -54,4 +54,5 @@ override with `CAUSALITY_MODEL`). Without a key, `/analyze` streams a clean
 
 Key endpoints: `GET /scenarios`, `GET /incidents/{id}`, `GET /incidents/{id}/spans`,
 `GET /incidents/{id}/logs`, `POST /incidents/{id}/analyze` (SSE: `hypothesis`* →
-`metrics` → `done`), `GET /incidents/{id}/metrics`, `GET /incidents/{id}/hypotheses`.
+`metrics` → `done`; add `?verify=true` for the agentic loop),
+`GET /incidents/{id}/metrics`, `GET /incidents/{id}/hypotheses`.

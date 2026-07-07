@@ -114,12 +114,16 @@ def _sse(event: str, data: dict) -> str:
 
 
 @app.post("/incidents/{incident_id}/analyze")
-def analyze(incident_id: str) -> StreamingResponse:
+def analyze(incident_id: str, verify: bool = False) -> StreamingResponse:
     """Run the hypothesis pipeline and stream results to the client as SSE.
 
     Emits one `hypothesis` event per ranked card (so the UI can animate them in),
     then a `metrics` event (tokens / latency / tool-calls), then `done`. Errors
     surface as an `error` event rather than a broken stream.
+
+    `?verify=true` runs the agentic loop — the model may call `query_traces` to
+    test hypotheses against the data before finalizing rank (tool-calls show in
+    the metrics).
     """
     if store.get_incident(incident_id) is None:
         raise HTTPException(404, f"unknown incident {incident_id}")
@@ -129,7 +133,7 @@ def analyze(incident_id: str) -> StreamingResponse:
 
     def gen() -> Iterator[str]:
         try:
-            hyps, metrics = generate_hypotheses(incident_id)
+            hyps, metrics = generate_hypotheses(incident_id, verify=verify)
         except RuntimeError as e:
             yield _sse("error", {"message": str(e)})
             return
