@@ -1,0 +1,35 @@
+# Causality — one-command local stack.
+#
+#   cp .env.example .env   # add your ANTHROPIC_API_KEY
+#   docker compose up       # → frontend http://localhost:5173, API http://localhost:8000
+#
+# Source is bind-mounted so edits hot-reload without a rebuild.
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Pulled from your shell or the .env file; required by the pipeline.
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # Optional model override — falls back to the code default when unset in .env.
+      # (An empty value would override the code default, so default it here too.)
+      - CAUSALITY_MODEL=${CAUSALITY_MODEL:-claude-sonnet-4-6}
+    volumes:
+      - ./backend/app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    environment:
+      # Browser talks to the backend on the host-published port.
+      - VITE_API_BASE=${VITE_API_BASE:-http://localhost:8000}
+    volumes:
+      - ./frontend:/app
+      # Keep the image's node_modules — don't let the host dir shadow it.
+      - /app/node_modules
