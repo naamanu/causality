@@ -5,10 +5,10 @@ of logs and traces from a failing service; it returns a **ranked set of root-cau
 hypotheses** — each one backed by the exact spans and log lines that support it —
 next to an interactive trace view you can drill into.
 
-> Weekend portfolio project. Demo-first, synthetic data only. Runs end-to-end with
+> Runs end-to-end with
 > one command (see [Quickstart](#quickstart)).
 
-<!-- Portfolio TODO: drop a screencast GIF or screenshot here (docs/demo.gif) and a live link. -->
+<!-- TODO: drop a screencast GIF or screenshot here (docs/demo.gif) and a live link. -->
 > **Live demo:** _add deploy link_ · **Screencast:** _add `docs/demo.gif`_
 
 ---
