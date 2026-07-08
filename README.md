@@ -88,6 +88,7 @@ npm run build      # tsc --noEmit && vite build
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | — (required) | Enables the hypothesis engine. Without it, `/analyze` streams a clean `error` event and the eval harness stops after seed validation. |
 | `CAUSALITY_MODEL` | `claude-sonnet-4-6` | Override the model. |
+| `CAUSALITY_IMPORT_DIR` | `data/imports` | Directory the server auto-loads trace files from and the only path `POST /import` may read (see [Importing real traces](#importing-real-traces)). |
 | `VITE_API_BASE` | `http://localhost:8000` | Where the browser reaches the API (set for a deployed demo). |
 
 > The backend allow-lists `http://localhost:5173` for CORS; the Docker setup keeps
@@ -103,9 +104,39 @@ npm run build      # tsc --noEmit && vite build
 | `GET /incidents/{id}/spans` · `.../logs` | Telemetry for an incident. |
 | `GET /spans?trace_id=&service=&status=&min_duration_ms=` | Raw query layer — also the surface the AI's `query_traces` tool wraps. |
 | `POST /ingest` | One clean ingest endpoint; accepts a full scenario bundle. |
+| `GET /imports` | List trace files available in the server's import dir. |
+| `POST /import` | Load an OTLP/Jaeger trace file (`{"path": ...}`) from the allow-listed import dir as a new incident. |
 | `POST /incidents/{id}/analyze[?verify=true]` | Run the pipeline, stream SSE: `hypothesis`\* → `metrics` → `done`. |
 | `GET /incidents/{id}/metrics` | Self-instrumentation for the most recent run. |
 | `GET /incidents/{id}/hypotheses` | Cached hypotheses from the most recent run (non-streaming). |
+
+## Importing real traces
+
+Beyond the synthetic seeds, Causality can ingest **real trace files from a running
+server** — the kind you already have from OpenTelemetry or Jaeger.
+
+- **Formats:** OTLP/JSON (`resourceSpans` at the top level) and Jaeger JSON (a `data`
+  array of traces with `spans` + `processes`). The parser derives everything the
+  seeds hand-author — per-trace relative offsets, a `Trace` per trace id, and one
+  `Incident` spanning the file's time window — so imported data flows through the
+  waterfall and the AI pipeline unchanged. Imported incidents have no ground truth,
+  so the eval harness skips them.
+- **Drop-in:** put a `*.json` trace file in the import dir (`data/imports/`, mounted
+  into the container) and it's **auto-loaded on startup**, appearing in the picker
+  tagged `imported`. A sample OTLP checkout trace ships there.
+- **On-demand:** `POST /import {"path": "my-trace.json"}` loads a specific file. The
+  path is **allow-listed to the import dir** — requests that escape it are rejected
+  (`403`), so the server can't be coaxed into reading arbitrary files.
+
+```bash
+# List what's available, then load one:
+curl localhost:8000/imports
+curl -X POST localhost:8000/import -H 'content-type: application/json' \
+  -d '{"path": "sample-otlp-checkout.json"}'
+```
+
+> OTLP/Jaeger *trace* exports carry no logs (logs are a separate signal), so
+> imported incidents are span-only — which the pipeline handles.
 
 ## Architecture
 
@@ -184,6 +215,7 @@ causality/
 | Self-instrumentation (tokens / latency / tool-calls) | ✅ |
 | Eval harness + scorecard | ✅ |
 | Frontend shell, streaming hypotheses, span view, metrics footer, states | ✅ |
+| Import real OTLP / Jaeger trace files from disk (auto-scan + `POST /import`) | ✅ |
 | One-command Docker stack | ✅ |
 | Scrubable timeline · full trace waterfall · Cmd-K palette · re-rank motion | 🔜 planned (`FUTURE.md`) |
 

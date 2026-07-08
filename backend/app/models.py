@@ -138,4 +138,6 @@ class ScenarioBundle(BaseModel):
     traces: List[Trace]
     spans: List[Span]
     logs: List[LogLine]
-    root_cause: RootCause
+    # Ground truth for the eval harness. `None` for imported telemetry (no known
+    # answer to score against) — seeds always carry one.
+    root_cause: Optional[RootCause] = None
