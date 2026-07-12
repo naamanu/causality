@@ -64,4 +64,6 @@ export interface ScenarioSummary {
   description: string;
   incident_id: string;
   default: boolean;
+  // "seed" = hand-authored scenario; "import" = loaded from an OTLP/Jaeger file.
+  source?: "seed" | "import";
 }

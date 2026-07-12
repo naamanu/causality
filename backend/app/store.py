@@ -32,6 +32,8 @@ class Store:
         self.logs: Dict[str, LogLine] = {}
         # scenario_key -> bundle, kept for the eval harness (ground truth lives here).
         self.bundles: Dict[str, ScenarioBundle] = {}
+        # scenario_keys that came from imported trace files (vs. hand-authored seeds).
+        self.imported_keys: set = set()
         # Last AI run per incident_id, for the metrics bar + eval harness.
         self.last_hypotheses: Dict[str, list] = {}
         self.last_metrics: Dict[str, object] = {}
@@ -49,6 +51,12 @@ class Store:
             self.spans[s.id] = s
         for l in bundle.logs:
             self.logs[l.id] = l
+
+    def register_import(self, bundle: ScenarioBundle) -> None:
+        """Ingest an imported trace bundle and surface it in the scenario picker."""
+        self.ingest_bundle(bundle)
+        self.bundles[bundle.scenario_key] = bundle
+        self.imported_keys.add(bundle.scenario_key)
 
     # --- read primitives (also the AI query layer) ---
 

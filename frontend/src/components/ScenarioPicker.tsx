@@ -33,6 +33,11 @@ export function ScenarioPicker({ scenarios, selectedIncidentId, onSelect }: Prop
                 ].join(" ")}
               />
               <span className="text-sm text-zinc-200">{s.title}</span>
+              {s.source === "import" && (
+                <span className="ml-auto rounded-sm border border-ink-700 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-zinc-500">
+                  imported
+                </span>
+              )}
             </div>
             <p className="mt-1 pl-3.5 text-xs leading-relaxed text-zinc-500">
               {s.description}

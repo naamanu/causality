@@ -9,14 +9,24 @@ explicit for the frontend.
 from __future__ import annotations
 
 import json
+import os
+import re
+from pathlib import Path
 from typing import Iterator, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
+from .importer import ImportError_, bundle_from_file
 from .models import AIMetrics, Hypothesis, Incident, LogLine, ScenarioBundle, Span, Status
 from .store import store
+
+# Directory the server is allowed to read trace files from — "where you'd store a
+# logfile". Files dropped here are auto-loaded on startup; `POST /import` reads only
+# from within this dir (path allow-listing, so it can't read arbitrary files).
+IMPORT_DIR = Path(os.environ.get("CAUSALITY_IMPORT_DIR", "data/imports")).resolve()
 
 app = FastAPI(title="Causality", version="0.1.0",
               description="AI incident root-cause copilot — backend")
@@ -33,6 +43,70 @@ app.add_middleware(
 @app.on_event("startup")
 def _startup() -> None:
     store.load_seeds()
+    _scan_import_dir()
+
+
+# --- trace-file import ------------------------------------------------------
+
+def _slug(text: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return s or "import"
+
+
+def _unique_key(base: str) -> str:
+    """A scenario_key not already taken (imports must not collide with seeds)."""
+    key = base
+    n = 2
+    while key in store.bundles:
+        key = f"{base}-{n}"
+        n += 1
+    return key
+
+
+def _resolve_in_import_dir(raw_path: str) -> Path:
+    """Resolve a requested path and confirm it stays inside IMPORT_DIR.
+
+    Prevents `../../etc/passwd`-style reads: relative paths resolve under the
+    import dir, and any resolved path must be contained by it.
+    """
+    p = Path(raw_path)
+    resolved = (p if p.is_absolute() else IMPORT_DIR / p).resolve()
+    if resolved != IMPORT_DIR and IMPORT_DIR not in resolved.parents:
+        raise HTTPException(403, f"path is outside the allowed import dir ({IMPORT_DIR})")
+    if not resolved.is_file():
+        raise HTTPException(404, f"no such file: {raw_path}")
+    return resolved
+
+
+def _import_path(path: Path, title: Optional[str] = None) -> dict:
+    scenario_key = _unique_key(f"import-{_slug(path.stem)}")
+    incident_id = f"inc-{scenario_key}"
+    bundle, warnings = bundle_from_file(
+        path,
+        scenario_key=scenario_key,
+        incident_id=incident_id,
+        title=title or f"Imported: {path.stem}",
+    )
+    store.register_import(bundle)
+    return {
+        "scenario_key": scenario_key,
+        "incident_id": incident_id,
+        "title": bundle.title,
+        "spans": len(bundle.spans),
+        "traces": len(bundle.traces),
+        "warnings": warnings,
+    }
+
+
+def _scan_import_dir() -> None:
+    """Auto-load every *.json in the import dir on startup (best-effort)."""
+    if not IMPORT_DIR.is_dir():
+        return
+    for f in sorted(IMPORT_DIR.glob("*.json")):
+        try:
+            _import_path(f)
+        except Exception as e:  # never let one bad file block startup
+            print(f"[import] skipped {f.name}: {e}")
 
 
 @app.get("/health")
@@ -51,8 +125,35 @@ def list_scenarios() -> List[dict]:
             "description": bundle.description,
             "incident_id": bundle.incident.id,
             "default": i == 0,
+            "source": "import" if key in store.imported_keys else "seed",
         })
     return out
+
+
+class ImportRequest(BaseModel):
+    path: str
+    title: Optional[str] = None
+
+
+@app.get("/imports")
+def list_import_files() -> dict:
+    """Trace files available in the server's import dir, and which are loaded."""
+    files = []
+    if IMPORT_DIR.is_dir():
+        for f in sorted(IMPORT_DIR.glob("*.json")):
+            files.append(f.name)
+    return {"import_dir": str(IMPORT_DIR), "files": files}
+
+
+@app.post("/import")
+def import_trace_file(req: ImportRequest) -> dict:
+    """Read an OTLP/Jaeger trace file from the allow-listed import dir and load it
+    as an incident (appears in the scenario picker, runs through the AI pipeline)."""
+    path = _resolve_in_import_dir(req.path)
+    try:
+        return _import_path(path, title=req.title)
+    except ImportError_ as e:
+        raise HTTPException(422, f"could not import {path.name}: {e}")
 
 
 @app.get("/incidents", response_model=List[Incident])

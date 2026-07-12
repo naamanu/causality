@@ -16,8 +16,12 @@ services:
       # Optional model override — falls back to the code default when unset in .env.
       # (An empty value would override the code default, so default it here too.)
       - CAUSALITY_MODEL=${CAUSALITY_MODEL:-claude-sonnet-4-6}
+      # Server-side import dir: OTLP/Jaeger trace files dropped here are auto-loaded.
+      - CAUSALITY_IMPORT_DIR=/app/data/imports
     volumes:
       - ./backend/app:/app/app
+      # "Where you'd store a logfile" — drop trace JSON here and it appears on restart.
+      - ./data/imports:/app/data/imports
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
