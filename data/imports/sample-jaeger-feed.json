@@ -1,0 +1,98 @@
+{
+  "data": [
+    {
+      "traceID": "9f8e7d6c5b4a39281706",
+      "spans": [
+        {
+          "traceID": "9f8e7d6c5b4a39281706",
+          "spanID": "1a2b3c4d5e6f7080",
+          "operationName": "GET /feed",
+          "startTime": 1752138000000000,
+          "duration": 2100000,
+          "processID": "p1",
+          "tags": [
+            { "key": "http.method", "type": "string", "value": "GET" },
+            { "key": "http.route", "type": "string", "value": "/feed" },
+            { "key": "http.status_code", "type": "int64", "value": 504 }
+          ]
+        },
+        {
+          "traceID": "9f8e7d6c5b4a39281706",
+          "spanID": "2b3c4d5e6f708191",
+          "operationName": "auth-check",
+          "startTime": 1752138000005000,
+          "duration": 15000,
+          "processID": "p2",
+          "references": [
+            { "refType": "CHILD_OF", "traceID": "9f8e7d6c5b4a39281706", "spanID": "1a2b3c4d5e6f7080" }
+          ],
+          "tags": []
+        },
+        {
+          "traceID": "9f8e7d6c5b4a39281706",
+          "spanID": "3c4d5e6f708191a2",
+          "operationName": "get-recommendations",
+          "startTime": 1752138000030000,
+          "duration": 2040000,
+          "processID": "p3",
+          "references": [
+            { "refType": "CHILD_OF", "traceID": "9f8e7d6c5b4a39281706", "spanID": "1a2b3c4d5e6f7080" }
+          ],
+          "tags": [
+            { "key": "otel.status_code", "type": "string", "value": "ERROR" }
+          ]
+        },
+        {
+          "traceID": "9f8e7d6c5b4a39281706",
+          "spanID": "4d5e6f708191a2b3",
+          "operationName": "redis.get profile:cache",
+          "startTime": 1752138000040000,
+          "duration": 5000,
+          "processID": "p3",
+          "references": [
+            { "refType": "CHILD_OF", "traceID": "9f8e7d6c5b4a39281706", "spanID": "3c4d5e6f708191a2" }
+          ],
+          "tags": [
+            { "key": "db.system", "type": "string", "value": "redis" },
+            { "key": "error", "type": "bool", "value": true },
+            { "key": "error.message", "type": "string", "value": "dial tcp 10.0.3.7:6379: connect: connection refused" }
+          ]
+        },
+        {
+          "traceID": "9f8e7d6c5b4a39281706",
+          "spanID": "5e6f708191a2b3c4",
+          "operationName": "db.query SELECT recommendations (cache-miss fallback)",
+          "startTime": 1752138000060000,
+          "duration": 1990000,
+          "processID": "p3",
+          "references": [
+            { "refType": "CHILD_OF", "traceID": "9f8e7d6c5b4a39281706", "spanID": "3c4d5e6f708191a2" }
+          ],
+          "tags": [
+            { "key": "db.system", "type": "string", "value": "postgres" },
+            { "key": "db.rows_examined", "type": "int64", "value": 2400000 },
+            { "key": "cache.hit", "type": "bool", "value": false }
+          ]
+        },
+        {
+          "traceID": "9f8e7d6c5b4a39281706",
+          "spanID": "6f708191a2b3c4d5",
+          "operationName": "render-feed",
+          "startTime": 1752138000030000,
+          "duration": 5000,
+          "processID": "p4",
+          "references": [
+            { "refType": "CHILD_OF", "traceID": "9f8e7d6c5b4a39281706", "spanID": "1a2b3c4d5e6f7080" }
+          ],
+          "tags": []
+        }
+      ],
+      "processes": {
+        "p1": { "serviceName": "api-gateway" },
+        "p2": { "serviceName": "auth-svc" },
+        "p3": { "serviceName": "reco-svc" },
+        "p4": { "serviceName": "web-svc" }
+      }
+    }
+  ]
+}

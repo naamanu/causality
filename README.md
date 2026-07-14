@@ -123,7 +123,9 @@ server** — the kind you already have from OpenTelemetry or Jaeger.
   so the eval harness skips them.
 - **Drop-in:** put a `*.json` trace file in the import dir (`data/imports/`, mounted
   into the container) and it's **auto-loaded on startup**, appearing in the picker
-  tagged `imported`. A sample OTLP checkout trace ships there.
+  tagged `imported`. Two samples ship there: `sample-otlp-checkout.json` (OTLP — a
+  Stripe payment timeout) and `sample-jaeger-feed.json` (Jaeger — a Redis outage
+  forcing a slow Postgres fallback).
 - **On-demand:** `POST /import {"path": "my-trace.json"}` loads a specific file. The
   path is **allow-listed to the import dir** — requests that escape it are rejected
   (`403`), so the server can't be coaxed into reading arbitrary files.
