@@ -1,0 +1,6 @@
+* @naamanu
+
+/.github/ @naamanu
+/backend/app/auth.py @naamanu
+/backend/app/security.py @naamanu
+/backend/app/extensions.py @naamanu

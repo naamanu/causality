@@ -11,17 +11,24 @@ from __future__ import annotations
 import json
 import os
 import re
+import uuid
 from pathlib import Path
 from typing import Iterator, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .importer import ImportError_, bundle_from_file
 from .models import AIMetrics, Hypothesis, Incident, LogLine, ScenarioBundle, Span, Status
 from .store import store
+from .config import settings
+from .db import init_database
+from .telemetry import ensure_clickhouse_schema
+from .api_v1 import router as api_v1_router, otlp_router
+from .extensions import load_extension
 
 # Directory the server is allowed to read trace files from — "where you'd store a
 # logfile". Files dropped here are auto-loaded on startup; `POST /import` reads only
@@ -34,14 +41,39 @@ app = FastAPI(title="Causality", version="0.1.0",
 # Frontend (Vite dev server) lands Sunday; allow it now.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=list({"http://localhost:5173", "http://127.0.0.1:5173", settings.app_base_url}),
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(api_v1_router)
+app.include_router(otlp_router)
+extension = load_extension()
+for extension_router in extension.routers:
+    app.include_router(extension_router)
+
+
+@app.middleware("http")
+async def production_boundary(request, call_next):
+    """Disable demo APIs and enforce same-origin cookie mutations in production."""
+    path = request.url.path
+    if settings.production and not path.startswith(("/api/v1", "/v1", "/health", "/docs", "/openapi.json")) and path != "/":
+        return JSONResponse({"detail": "not found"}, status_code=404)
+    if settings.production and path.startswith("/api/v1") and request.method not in {"GET", "HEAD", "OPTIONS"} and request.cookies.get("causality_session"):
+        if request.headers.get("origin") != settings.app_base_url.rstrip("/"):
+            return JSONResponse({"detail": "invalid request origin"}, status_code=403)
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+    return response
 
 
 @app.on_event("startup")
 def _startup() -> None:
+    settings.validate()
+    extension.validate()
+    init_database()
+    ensure_clickhouse_schema()
+    extension.startup()
     store.load_seeds()
     _scan_import_dir()
 
@@ -112,6 +144,23 @@ def _scan_import_dir() -> None:
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "incidents": len(store.incidents), "spans": len(store.spans)}
+
+
+@app.get("/health/live")
+def live() -> dict:
+    return {"status": "ok"}
+
+
+@app.get("/health/ready")
+def ready() -> dict:
+    from sqlalchemy import text
+    from .db import session_scope
+    try:
+        with session_scope() as db:
+            db.execute(text("SELECT 1"))
+        return {"status": "ready"}
+    except Exception as exc:
+        raise HTTPException(503, "database unavailable") from exc
 
 
 @app.get("/scenarios")
@@ -262,3 +311,10 @@ def last_hypotheses(incident_id: str) -> List[Hypothesis]:
     if h is None:
         raise HTTPException(404, f"no run recorded for {incident_id}")
     return h
+
+
+# The production image copies the Vite build here. API routes are registered
+# first, so the SPA fallback cannot shadow them.
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+if STATIC_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="frontend")
