@@ -1,5 +1,17 @@
 # Railway deployment
 
+## Visual demo
+
+The public design-review demo is deployed at
+[`web-production-24389.up.railway.app`](https://web-production-24389.up.railway.app).
+It runs the same production image with `APP_ENV=demo`, which creates an ephemeral
+SQLite control plane, a deterministic incident, realistic trace data, usage, and
+precomputed analysis results. It needs no customer data or external credentials
+and must never be used as the production environment.
+
+The demo environment is intentionally disposable. Its state resets whenever the
+service restarts; this keeps pull-request visual review reproducible and cheap.
+
 Create one Railway project with `staging` and `production` environments. Add the
 same GitHub repository three times:
 

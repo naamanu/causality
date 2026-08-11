@@ -197,6 +197,9 @@ def incident_telemetry(incident_id: str, p: Principal = Depends(current_principa
     if inc is None or inc.workspace_id != p.workspace_id:
         raise HTTPException(404, "incident not found")
     spans, logs = query_window(p.workspace_id, inc.environment_id, inc.window_start, inc.window_end, inc.services)
+    if settings.demo and incident_id == "inc_demo_slow_db":
+        from .demo import demo_telemetry
+        spans, logs = demo_telemetry()
     return {"spans": [x.model_dump() for x in spans], "logs": [x.model_dump() for x in logs]}
 
 
@@ -218,10 +221,37 @@ def create_analysis(incident_id: str, body: AnalysisCreate, p: Principal = Depen
         usage = UsageDaily(workspace_id=p.workspace_id, day=day); db.add(usage)
     usage.analyses = (usage.analyses or 0) + 1
     _audit(db, p, "analysis.created", "analysis", row.id)
+    if settings.demo and incident_id == "inc_demo_slow_db":
+        _complete_demo_analysis(row, db)
+        db.commit()
+        return _analysis_json(row, db)
     # The worker must not race the transaction that created its job.
     db.commit()
     run_analysis.delay(row.id)
     return _analysis_json(row, db)
+
+
+def _complete_demo_analysis(row: AnalysisRecord, db: Session) -> None:
+    from .demo import demo_telemetry
+    spans, logs = demo_telemetry()
+    candidates = [
+        (0.94, "Lock-contended inventory query", "An unindexed SELECT … FOR UPDATE scans roughly 1.8M inventory rows and spends 402ms waiting on a row lock, dominating checkout latency.", [span.id for span in spans if span.name in {"persist-order", "db.query SELECT inventory FOR UPDATE"}], [log.id for log in logs if "lock wait" in log.message.lower()]),
+        (0.61, "Order persistence is the bottleneck", "The persist-order branch accounts for most of the trace duration while payment and cart validation remain within their normal budgets.", [span.id for span in spans if span.name in {"persist-order", "POST /checkout"}], []),
+        (0.24, "Payment provider latency", "Payment is on the critical path, but its span completes quickly and has no correlated error evidence, making it an unlikely primary cause.", [span.id for span in spans if span.service == "payment-svc"], [log.id for log in logs if "payment" in log.message.lower()]),
+    ]
+    for rank, (confidence, title, explanation, span_ids, log_ids) in enumerate(candidates, start=1):
+        db.add(HypothesisRecord(
+            id=f"hyp_demo_{row.id}_{rank}", workspace_id=row.workspace_id, analysis_id=row.id,
+            rank=rank, confidence=confidence, title=title, explanation=explanation,
+            evidence_span_ids=span_ids, evidence_log_ids=log_ids,
+        ))
+    row.status = "completed"
+    row.model = "causality-demo / claude-sonnet"
+    row.input_tokens = 2293
+    row.output_tokens = 614
+    row.latency_ms = 1842
+    row.tool_calls = 1
+    row.completed_at = utcnow()
 
 
 def _analysis_json(row: AnalysisRecord, db: Session) -> dict:

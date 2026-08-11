@@ -75,6 +75,9 @@ def _startup() -> None:
     ensure_clickhouse_schema()
     extension.startup()
     store.load_seeds()
+    if settings.demo:
+        from .demo import seed_demo_control_plane
+        seed_demo_control_plane()
     _scan_import_dir()
 
 
