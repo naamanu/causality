@@ -1,238 +1,93 @@
 # Causality
 
-**An AI incident root-cause copilot for on-call engineers.** Point it at a window
-of logs and traces from a failing service; it returns a **ranked set of root-cause
-hypotheses** — each one backed by the exact spans and log lines that support it —
-next to an interactive trace view you can drill into.
+Causality is a multi-tenant incident root-cause copilot. It accepts OpenTelemetry
+traces and logs, lets an engineer define an incident window, and produces ranked,
+evidence-linked hypotheses with Anthropic.
 
-> Runs end-to-end with
-> one command (see [Quickstart](#quickstart)).
+## Local quickstart
 
-<!-- TODO: drop a screencast GIF or screenshot here (docs/demo.gif) and a live link. -->
-> **Live demo:** _add deploy link_ · **Screencast:** _add `docs/demo.gif`_
-
----
-
-## The problem
-
-When a service starts failing at 2am, the on-call engineer's job is not "fix it" —
-it's **figure out what's actually wrong** before the clock runs. They page through
-dashboards, grep logs, eyeball trace waterfalls, and hold a mental model of which
-span caused which. That triage phase is where **MTTR** (mean time to resolution)
-goes to die: the fix is often trivial once you *know* the cause.
-
-- **ICP:** the on-call engineer mid-incident, and the SRE/platform teams who own MTTR.
-- **The wedge:** collapse "read the telemetry → form a theory → find the evidence"
-  from minutes of manual scanning into a ranked, evidence-linked shortlist you can
-  confirm or reject in seconds.
-- **The value metric:** time-to-root-cause. The demo is designed to make that win
-  legible — a failing incident loads, hypotheses stream in ranked, and each card
-  jumps you straight to the spans that justify it.
-
-## How it works
-
-1. **Context assembly** — for a given incident, gather the candidate spans/logs and
-   rank by signal: error status, latency outliers, and temporal proximity to the
-   first failure.
-2. **Hypothesis generation** — a single structured-output call (Anthropic tool-calling
-   enforces the `Hypothesis` schema) returns a ranked list, each with a title,
-   explanation, confidence, and references to the supporting `span_ids` / `log_ids`.
-3. **Agentic verification** *(optional, `?verify=true`)* — the model may call a
-   `query_traces` tool to test a hypothesis against the data before finalizing rank.
-   Tool-calls are counted and surfaced in the metrics.
-4. **Self-instrumentation** — every run records model, input/output tokens, latency,
-   and tool-calls. It's observability *of* the AI, inside an observability product.
-5. **Eval harness** — each seed scenario ships a hidden ground-truth root cause; the
-   harness scores whether the top hypothesis matches and prints a scorecard.
-
-Results stream to the client over **Server-Sent Events**: one `hypothesis` event per
-ranked card, then a `metrics` event, then `done` (errors arrive as a clean `error`
-event rather than a broken stream).
-
-## Quickstart
-
-### Docker — one command
+OrbStack or another Docker-compatible runtime is sufficient.
 
 ```bash
-cp .env.example .env        # add your ANTHROPIC_API_KEY
-docker compose up           # frontend → http://localhost:5173 · API → http://localhost:8000
+cp .env.example .env
+# Set ANTHROPIC_API_KEY in .env to run analyses.
+docker compose up --build
 ```
 
-Brings up both services with source bind-mounted for hot reload. Stop with
-`docker compose down`. The frontend auto-loads the default scenario, so a reviewer
-gets the full flow with zero setup.
+Open `http://localhost:5173`. Development mode supplies a local owner identity;
+production requires WorkOS AuthKit. The API is also available at
+`http://localhost:8000/docs`.
 
-### Local — backend
+The first-run UI creates an environment and displays its ingestion key exactly
+once. Configure an OpenTelemetry Collector with:
 
 ```bash
-cd backend
-python3 -m venv .venv && source .venv/bin/activate   # fish: source .venv/bin/activate.fish
-pip install -r requirements.txt
-
-uvicorn app.main:app --reload         # API on http://localhost:8000  (/docs for Swagger)
-python -m app.eval                    # seed integrity check + scorecard
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:8000
+OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <ingestion-key>"
 ```
 
-### Local — frontend
-
-```bash
-cd frontend
-npm install
-npm run dev        # http://localhost:5173 (expects the backend on :8000)
-npm run build      # tsc --noEmit && vite build
-```
-
-### Configuration
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `ANTHROPIC_API_KEY` | — (required) | Enables the hypothesis engine. Without it, `/analyze` streams a clean `error` event and the eval harness stops after seed validation. |
-| `CAUSALITY_MODEL` | `claude-sonnet-4-6` | Override the model. |
-| `CAUSALITY_IMPORT_DIR` | `data/imports` | Directory the server auto-loads trace files from and the only path `POST /import` may read (see [Importing real traces](#importing-real-traces)). |
-| `VITE_API_BASE` | `http://localhost:8000` | Where the browser reaches the API (set for a deployed demo). |
-
-> The backend allow-lists `http://localhost:5173` for CORS; the Docker setup keeps
-> the frontend on that origin so it works out of the box.
-
-## API
-
-| Method & path | Description |
-| --- | --- |
-| `GET /health` | Liveness + loaded incident/span counts. |
-| `GET /scenarios` | Demo picker source; flags the default "10-second wow" scenario. |
-| `GET /incidents` · `GET /incidents/{id}` | List / fetch incidents. |
-| `GET /incidents/{id}/spans` · `.../logs` | Telemetry for an incident. |
-| `GET /spans?trace_id=&service=&status=&min_duration_ms=` | Raw query layer — also the surface the AI's `query_traces` tool wraps. |
-| `POST /ingest` | One clean ingest endpoint; accepts a full scenario bundle. |
-| `GET /imports` | List trace files available in the server's import dir. |
-| `POST /import` | Load an OTLP/Jaeger trace file (`{"path": ...}`) from the allow-listed import dir as a new incident. |
-| `POST /incidents/{id}/analyze[?verify=true]` | Run the pipeline, stream SSE: `hypothesis`\* → `metrics` → `done`. |
-| `GET /incidents/{id}/metrics` | Self-instrumentation for the most recent run. |
-| `GET /incidents/{id}/hypotheses` | Cached hypotheses from the most recent run (non-streaming). |
-
-## Importing real traces
-
-Beyond the synthetic seeds, Causality can ingest **real trace files from a running
-server** — the kind you already have from OpenTelemetry or Jaeger.
-
-- **Formats:** OTLP/JSON (`resourceSpans` at the top level) and Jaeger JSON (a `data`
-  array of traces with `spans` + `processes`). The parser derives everything the
-  seeds hand-author — per-trace relative offsets, a `Trace` per trace id, and one
-  `Incident` spanning the file's time window — so imported data flows through the
-  waterfall and the AI pipeline unchanged. Imported incidents have no ground truth,
-  so the eval harness skips them.
-- **Drop-in:** put a `*.json` trace file in the import dir (`data/imports/`, mounted
-  into the container) and it's **auto-loaded on startup**, appearing in the picker
-  tagged `imported`. A sample OTLP checkout trace ships there.
-- **On-demand:** `POST /import {"path": "my-trace.json"}` loads a specific file. The
-  path is **allow-listed to the import dir** — requests that escape it are rejected
-  (`403`), so the server can't be coaxed into reading arbitrary files.
-
-```bash
-# List what's available, then load one:
-curl localhost:8000/imports
-curl -X POST localhost:8000/import -H 'content-type: application/json' \
-  -d '{"path": "sample-otlp-checkout.json"}'
-```
-
-> OTLP/Jaeger *trace* exports carry no logs (logs are a separate signal), so
-> imported incidents are span-only — which the pipeline handles.
+Then create an investigation for the relevant service and time window. Stop the
+stack with `docker compose down`; named volumes preserve its data.
 
 ## Architecture
 
-```
-frontend/  React + TypeScript + Vite + Tailwind  ──SSE──▶  backend/  FastAPI
-  ScenarioPicker · IncidentHeader                            /analyze streams
-  SpanList · HypothesisList (+ metrics footer)               Anthropic tool-calling
-                                                             in-memory Store (seeds)
-```
+- React/Vite frontend and FastAPI API
+- PostgreSQL control plane for workspaces, environments, incidents, analyses,
+  usage, keys, and audit events
+- ClickHouse telemetry plane with seven-day trace/log retention
+- Redis quotas and Celery ingestion/analysis workers
+- WorkOS AuthKit organizations and roles
+- Anthropic platform-managed analysis, with token/latency metrics
 
-**Data model** (`backend/app/models.py`):
+Every control-plane query and telemetry query is workspace-scoped. Ingestion keys
+are hashed, revocable, environment-specific, and only shown at creation. Sensitive
+telemetry attributes are redacted before persistence. Production disables the old
+seed/demo API surface and enforces same-origin cookie mutations.
 
-- `Trace` — id, service, start/end, status
-- `Span` — id, trace_id, parent_id, name, service, start/end, status, attributes
-- `LogLine` — id, trace_id?, span_id?, ts, level, message, attributes
-- `Incident` — id, title, scenario_key, trace_ids, summary
-- `Hypothesis` — id, incident_id, rank, confidence, title, explanation, evidence span/log ids
-- `AIMetrics` — model, input/output tokens, latency, tool-calls
+## Services and API
 
-Persistence is in-memory for the weekend; the `Store` is structured so a SQLite swap
-is mechanical (see `FUTURE.md`).
+The browser uses `/api/v1`; collectors send OTLP/HTTP JSON or protobuf to
+`/v1/traces` and `/v1/logs`. Analysis jobs expose durable status plus an SSE event
+stream. Health endpoints are `/health/live` and `/health/ready`.
 
-## Seed scenarios
+The legacy in-memory seed and import routes remain available only in development
+for product demonstrations and evaluation.
 
-Each ships with a hidden ground-truth root cause for the eval harness:
+## Verification
 
-1. **slow-db-query** — unindexed, lock-contended `SELECT ... FOR UPDATE` blows the
-   checkout latency budget (no errors, latency only).
-2. **cascading-timeout** — redis outage → profile-svc bypasses cache → recommendations
-   timeout → gateway 504.
-3. **bad-deploy** — order-svc v2.4.0 introduces a null deref in a new discount path;
-   error rate spikes at the deploy boundary.
-4. **noisy-neighbor** — analytics batch hogs the shared DB connection pool; api-svc
-   stalls acquiring a connection despite fast queries.
+```bash
+cd backend
+pip install -r requirements.txt -r requirements-dev.txt
+pytest
 
-## Frontend
+cd ../frontend
+npm ci
+npm run build
 
-React + TypeScript + Vite + Tailwind, with monospace-meets-editorial typography
-(JetBrains Mono for data, Newsreader for headlines). It auto-loads the default
-scenario, renders the incident header and a proportional span view, and streams
-hypotheses from `/analyze` over SSE — `useAnalyzeStream` parses the event stream by
-hand since the endpoint is a POST. Hypothesis cards render as they arrive, with a
-metrics footer showing model, tokens, latency, and tool-calls. Empty, loading
-(skeleton), and error states are handled deliberately.
-
-## Project structure
-
-```
-causality/
-├─ docker-compose.yml       # one-command stack
-├─ backend/
-│  ├─ Dockerfile
-│  ├─ requirements.txt
-│  └─ app/
-│     ├─ main.py            # FastAPI routes + SSE
-│     ├─ models.py          # Pydantic data model
-│     ├─ store.py           # in-memory store + query layer
-│     ├─ pipeline.py        # hypothesis gen, structured output, verify loop
-│     ├─ eval.py            # seed validation + scorecard
-│     └─ seeds/             # 4 synthetic scenarios + builder
-└─ frontend/
-   ├─ Dockerfile
-   └─ src/
-      ├─ App.tsx
-      ├─ api/               # client, types, useAnalyzeStream (SSE)
-      └─ components/        # ScenarioPicker, IncidentHeader, SpanList, HypothesisList
+cd ..
+docker build -t causality .
 ```
 
-## Status
+CI runs all three checks on pull requests and `main`.
 
-| Area | State |
-| --- | --- |
-| Data model, 4 seed scenarios, ingest + query layer | ✅ |
-| AI hypothesis pipeline — structured output + SSE streaming | ✅ |
-| Agentic verification loop (`query_traces`, `?verify=true`) | ✅ |
-| Self-instrumentation (tokens / latency / tool-calls) | ✅ |
-| Eval harness + scorecard | ✅ |
-| Frontend shell, streaming hypotheses, span view, metrics footer, states | ✅ |
-| Import real OTLP / Jaeger trace files from disk (auto-scan + `POST /import`) | ✅ |
-| One-command Docker stack | ✅ |
-| Scrubable timeline · full trace waterfall · Cmd-K palette · re-rank motion | 🔜 planned (`FUTURE.md`) |
+## Railway deployment
 
-## What this demonstrates
+The repository contains separate Railway configurations for the web process,
+worker, and daily retention cleanup. Follow [docs/railway.md](docs/railway.md) for
+provisioning, required environment variables, migrations, and the staging
+checklist. The processes use portable URLs and environment variables so the same
+application can later move to Render without code changes.
 
-- **Design engineering** — the on-call moment as a crafted interface: streaming
-  hypothesis cards, a proportional span view, evidence that links back to the
-  telemetry, and deliberate empty/loading/error states.
-- **Product engineering** — a clear ICP and a felt problem, framed around one value
-  metric (time-to-root-cause / MTTR).
-- **Full-stack engineering** — a real ingest endpoint, a sane trace/span data model,
-  a query layer the AI reuses, and SSE streaming to the client.
-- **AI engineering** — structured/function-calling output for the hypothesis schema,
-  retrieval over log/trace context, an agentic verification loop, a small eval
-  harness, and self-instrumentation of the model surfaced in the UI.
+## Open-core development
 
-## Scope
+The shared product is MIT-licensed. Paid source must live in a separate private
+repository—not a branch of this public repository—and integrate through the
+optional backend extension contract. See [docs/open-core.md](docs/open-core.md)
+for ownership, CI, packaging, and security boundaries.
 
-Synthetic data only, demo-first, weekend-scoped. Anything cut to protect the happy
-path is tracked in [`FUTURE.md`](./FUTURE.md).
+## Retention and beta limits
+
+Telemetry expires after seven days. Incidents, analyses, hypotheses, and audit
+history expire after 90 days through the cleanup job. Default design-partner beta
+limits are three environments, ten members, ten million telemetry records per
+month, and 200 analyses per month; all are configurable per workspace.

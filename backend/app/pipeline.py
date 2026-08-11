@@ -219,8 +219,34 @@ def generate_hypotheses(
     inc = ctx["incident"]
     spans: List[Span] = ctx["spans"]
     logs: List[LogLine] = ctx["logs"]
+    hyps, metrics = generate_from_context(incident_id, inc.title, inc.summary, spans, logs, verify=verify)
+    store.last_hypotheses[incident_id] = hyps
+    store.last_metrics[incident_id] = metrics
+    return hyps, metrics
+
+
+def generate_from_context(
+    incident_id: str,
+    title: str,
+    summary: str,
+    spans: List[Span],
+    logs: List[LogLine],
+    verify: bool = False,
+) -> Tuple[List[Hypothesis], AIMetrics]:
+    """Generate from an explicitly tenant-scoped context.
+
+    Production workers use this entrypoint so no customer analysis can touch the
+    legacy process-global demo store. Verification remains demo-only until its
+    query tool accepts the same explicit repository boundary.
+    """
+    try:
+        import anthropic
+    except ImportError as e:  # pragma: no cover - environment guard
+        raise RuntimeError("anthropic SDK not installed — `pip install -r requirements.txt`") from e
+    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        raise RuntimeError("ANTHROPIC_API_KEY is not set")
     user = (
-        f"Incident: {inc.title}\n{inc.summary}\n\n"
+        f"Incident: {title}\n{summary}\n\n"
         + _format_context(spans, logs)
         + "\n\nCall emit_hypotheses with 2-4 ranked root-cause hypotheses."
     )
@@ -252,8 +278,6 @@ def generate_hypotheses(
         tool_calls=tool_calls,
         hypothesis_count=len(hyps),
     )
-    store.last_hypotheses[incident_id] = hyps
-    store.last_metrics[incident_id] = metrics
     return hyps, metrics
 
 

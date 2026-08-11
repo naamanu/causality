@@ -12,7 +12,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY app ./app
+RUN addgroup --system causality && adduser --system --ingroup causality causality
+COPY --chown=causality:causality app ./app
+USER causality
 
 EXPOSE 8000
 

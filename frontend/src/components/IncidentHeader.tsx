@@ -14,7 +14,7 @@ export function IncidentHeader({ incident, spans }: Props) {
   return (
     <header className="border-b border-ink-800 pb-5">
       <div className="text-[11px] uppercase tracking-widest text-accent/80">
-        Incident · {incident.scenario_key}
+        Investigation · {incident.services.join(", ") || "all services"}
       </div>
       <h1 className="mt-1.5 font-serif text-3xl leading-tight text-zinc-50">
         {incident.title}
@@ -31,7 +31,7 @@ export function IncidentHeader({ incident, spans }: Props) {
           value={String(degraded)}
           tone={degraded ? "text-degraded" : undefined}
         />
-        <Stat label="traces" value={String(incident.trace_ids.length)} />
+        <Stat label="environment" value={incident.environment_id.slice(0, 12)} />
       </dl>
     </header>
   );
