@@ -17,7 +17,7 @@ from typing import Iterator, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -57,7 +57,7 @@ for extension_router in extension.routers:
 async def production_boundary(request, call_next):
     """Disable demo APIs and enforce same-origin cookie mutations in production."""
     path = request.url.path
-    if settings.production and not path.startswith(("/api/v1", "/v1", "/health", "/docs", "/openapi.json")) and path != "/":
+    if settings.production and not path.startswith(("/api/v1", "/v1", "/health", "/docs", "/openapi.json", "/app")) and path != "/":
         return JSONResponse({"detail": "not found"}, status_code=404)
     if settings.production and path.startswith("/api/v1") and request.method not in {"GET", "HEAD", "OPTIONS"} and request.cookies.get("causality_session"):
         if request.headers.get("origin") != settings.app_base_url.rstrip("/"):
@@ -320,4 +320,9 @@ def last_hypotheses(incident_id: str) -> List[Hypothesis]:
 # first, so the SPA fallback cannot shadow them.
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 if STATIC_DIR.is_dir():
+    @app.get("/app", include_in_schema=False)
+    @app.get("/app/", include_in_schema=False)
+    def product_frontend() -> FileResponse:
+        return FileResponse(STATIC_DIR / "index.html")
+
     app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="frontend")

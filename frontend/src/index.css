@@ -7,9 +7,10 @@
     color-scheme: light;
     font-synthesis: none;
   }
-  html, body, #root { height: 100%; }
+  html, body, #root { height: 100%; max-width: 100%; }
   body {
     margin: 0;
+    overflow-x: hidden;
     background: #f5f5f1;
     color: #171714;
     font-family: "Instrument Sans", Inter, ui-sans-serif, system-ui, sans-serif;
@@ -23,6 +24,131 @@
 }
 
 @layer components {
+  .marketing-shell { width: 100%; min-height: 100%; overflow: hidden; background: #f6f6f1; color: #181815; }
+  .marketing-nav { display: flex; height: 70px; max-width: 1320px; margin: 0 auto; align-items: center; border-bottom: 1px solid #dadad2; padding: 0 34px; }
+  .marketing-wordmark { display: flex; align-items: center; gap: 9px; color: #181815; font-size: 15px; font-weight: 650; letter-spacing: -.025em; text-decoration: none; }
+  .marketing-wordmark > span { display: grid; height: 27px; width: 27px; place-items: center; border-radius: 7px; background: #181815; color: #fff; font-family: "IBM Plex Mono", monospace; font-size: 11px; }
+  .marketing-links { display: flex; gap: 30px; margin-left: 70px; }
+  .marketing-links a, .marketing-sign-in { color: #65655e; font-size: 12px; text-decoration: none; transition: color 120ms ease; }
+  .marketing-links a:hover, .marketing-sign-in:hover { color: #181815; }
+  .marketing-actions { display: flex; align-items: center; gap: 22px; margin-left: auto; }
+  .marketing-button { display: inline-flex; height: 38px; align-items: center; justify-content: center; gap: 9px; border-radius: 6px; padding: 0 15px; font-size: 12px; font-weight: 560; text-decoration: none; transition: 150ms ease; }
+  .marketing-button svg, .inline-link svg, .repo-card a svg { height: 15px; width: 15px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+  .marketing-button-dark { background: #191916; color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.13); }
+  .marketing-button-dark:hover { background: #34342f; transform: translateY(-1px); }
+  .marketing-button-light { border: 1px solid #d2d2ca; background: #fbfbf8; color: #2e2e29; }
+  .marketing-button-light:hover { border-color: #aaa9a1; background: #fff; }
+  .marketing-button-light svg { fill: currentColor; stroke: none; }
+
+  .marketing-hero { display: flex; max-width: 980px; margin: 0 auto; align-items: center; flex-direction: column; padding: 132px 32px 100px; text-align: center; }
+  .hero-status { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #d8d8d0; border-radius: 99px; background: rgba(255,255,255,.55); padding: 6px 11px; color: #73736c; font-family: "IBM Plex Mono", monospace; font-size: 9px; letter-spacing: .035em; text-transform: uppercase; }
+  .hero-status span { height: 6px; width: 6px; border-radius: 50%; background: #329568; box-shadow: 0 0 0 3px #deeee5; }
+  .marketing-hero h1 { margin-top: 31px; max-width: 900px; font-size: clamp(58px, 7vw, 92px); font-weight: 540; letter-spacing: -.068em; line-height: .94; }
+  .marketing-hero > p:not(.hero-footnote) { max-width: 625px; margin-top: 30px; color: #6e6e67; font-size: 17px; line-height: 1.65; }
+  .hero-actions { display: flex; gap: 9px; margin-top: 34px; }
+  .hero-footnote { margin-top: 13px; color: #999990; font-family: "IBM Plex Mono", monospace; font-size: 9px; }
+
+  .product-stage { position: relative; max-width: 1320px; margin: 0 auto; overflow: hidden; border: 1px solid #d9d9d1; border-radius: 14px 14px 0 0; background: #e8e8e1; padding: 70px 70px 0; }
+  .stage-grid { position: absolute; inset: 0; opacity: .65; background-image: linear-gradient(#d8d8d1 1px, transparent 1px), linear-gradient(90deg,#d8d8d1 1px,transparent 1px); background-size: 34px 34px; mask-image: linear-gradient(to bottom, black, transparent); }
+  .product-window { position: relative; min-width: 920px; overflow: hidden; border: 1px solid #c9c9c1; border-bottom: 0; border-radius: 11px 11px 0 0; background: #fff; box-shadow: 0 30px 80px rgba(38,38,33,.17); }
+  .window-bar { display: flex; height: 47px; align-items: center; gap: 18px; border-bottom: 1px solid #deded7; background: #fafaf7; padding: 0 13px; font-size: 10px; }
+  .window-brand { display: flex; align-items: center; gap: 7px; font-weight: 650; }
+  .window-brand span { display: grid; height: 23px; width: 23px; place-items: center; border-radius: 6px; background: #181815; color: #fff; font-family: "IBM Plex Mono",monospace; font-size: 9px; }
+  .window-context { display: flex; align-items: center; gap: 7px; color: #686861; }
+  .window-context i { height: 5px; width: 5px; margin-left: 8px; border-radius: 50%; background: #349c6a; }
+  .window-avatar { display: grid; height: 24px; width: 24px; margin-left: auto; place-items: center; border-radius: 50%; background: #e4e4dd; color: #6f6f68; font-size: 8px; }
+  .window-body { display: grid; grid-template-columns: 190px minmax(430px,1fr) 300px; min-height: 480px; }
+  .preview-sidebar { border-right: 1px solid #deded7; background: #f7f7f3; padding: 13px 8px; }
+  .preview-sidebar > button { width: 100%; border-radius: 6px; background: #1d1d19; padding: 8px 10px; color: white; font-size: 9px; }
+  .preview-label { display: flex; justify-content: space-between; padding: 23px 7px 8px; color: #92928a; font-family: "IBM Plex Mono",monospace; font-size: 7px; letter-spacing: .08em; text-transform: uppercase; }
+  .preview-incident { position: relative; display: flex; flex-direction: column; border-radius: 6px; padding: 8px 8px 8px 21px; color: #55554e; font-size: 9px; }
+  .preview-incident.active { background: #e8e8e2; color: #242420; }
+  .preview-incident i { position: absolute; left: 8px; top: 11px; height: 5px; width: 5px; border: 1px solid #999991; border-radius: 50%; }
+  .preview-incident.active i { border-color: #22221e; background: #22221e; }
+  .preview-incident small { margin-top: 3px; color: #999991; font-size: 7px; }
+  .preview-trace { padding: 33px 33px; }
+  .preview-kicker { color: #8a8a82; font-family: "IBM Plex Mono",monospace; font-size: 7px; letter-spacing: .1em; }
+  .preview-trace h3 { margin-top: 9px; font-size: 22px; font-weight: 600; letter-spacing: -.035em; }
+  .preview-trace > p { margin-top: 5px; color: #86867f; font-size: 8px; }
+  .preview-metrics { display: flex; gap: 26px; margin-top: 25px; border-top: 1px solid #e5e5df; border-bottom: 1px solid #e5e5df; padding: 13px 0; color: #85857d; font-size: 7px; }
+  .preview-metrics span { display: flex; flex-direction: column; gap: 4px; }
+  .preview-metrics b { color: #292925; font-family: "IBM Plex Mono",monospace; font-size: 11px; font-weight: 500; }
+  .trace-heading { display: flex; justify-content: space-between; margin: 27px 0 12px; color: #55554e; font-size: 9px; font-weight: 600; }
+  .trace-heading small { color: #989890; font-weight: 400; }
+  .trace-row { display: grid; grid-template-columns: 115px 1fr 36px; align-items: center; gap: 10px; border-top: 1px solid #eeeeea; padding: 11px 0; }
+  .trace-row > div:first-child { display: flex; flex-direction: column; gap: 3px; }
+  .trace-row strong { font-family: "IBM Plex Mono",monospace; font-size: 7px; font-weight: 500; }
+  .trace-row small, .trace-row time { color: #999991; font-size: 7px; }
+  .trace-row time { text-align: right; }
+  .trace-track { height: 6px; background: #eeeeea; }
+  .trace-track span { display: block; height: 100%; background: #a8a8a0; }
+  .trace-track span.error { background: #bb6259; }
+  .preview-analysis { border-left: 1px solid #deded7; background: #fafaf7; padding: 25px 17px; }
+  .analysis-title { display: flex; justify-content: space-between; color: #363631; font-size: 10px; font-weight: 600; }
+  .analysis-title small { color: #999991; font-size: 7px; font-weight: 400; }
+  .cause-card { margin-top: 10px; border: 1px solid #deded7; border-radius: 7px; background: #fff; padding: 13px; }
+  .cause-card.primary { border-left: 2px solid #1e1e1a; }
+  .cause-rank { display: flex; justify-content: space-between; font-family: "IBM Plex Mono",monospace; font-size: 7px; }
+  .cause-rank span { color: #9a9a92; }
+  .cause-rank b { color: #4d8b67; font-weight: 500; }
+  .cause-card h4 { margin-top: 14px; font-size: 11px; font-weight: 600; }
+  .cause-card p { margin-top: 7px; color: #85857d; font-size: 8px; line-height: 1.55; }
+  .evidence-line { margin-top: 13px; border-top: 1px solid #ecece7; padding-top: 10px; color: #777770; font-size: 7px; }
+  .evidence-line i { display: inline-block; height: 5px; width: 5px; margin-right: 4px; border-radius: 50%; background: #5f8f70; }
+
+  .marketing-section { max-width: 1320px; margin: 0 auto; border-right: 1px solid #dadad2; border-left: 1px solid #dadad2; }
+  .marketing-kicker { color: #818179; font-family: "IBM Plex Mono",monospace; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
+  .workflow-section { display: grid; grid-template-columns: .85fr 1.15fr; gap: 100px; padding: 150px 92px; }
+  .section-intro h2, .architecture-copy h2, .principles-section > h2, .open-source-section h2, .final-cta h2 { margin-top: 20px; font-size: clamp(38px,4vw,58px); font-weight: 540; letter-spacing: -.055em; line-height: 1.02; }
+  .section-intro > p, .architecture-copy > p { max-width: 480px; margin-top: 25px; color: #73736c; font-size: 14px; line-height: 1.75; }
+  .workflow-list { border-top: 1px solid #d7d7cf; }
+  .workflow-step { display: grid; grid-template-columns: 40px 160px 1fr 20px; gap: 18px; align-items: start; border-bottom: 1px solid #d7d7cf; padding: 28px 4px; }
+  .workflow-step > span { color: #9b9b93; font-family: "IBM Plex Mono",monospace; font-size: 9px; }
+  .workflow-step h3 { font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
+  .workflow-step p { color: #787870; font-size: 12px; line-height: 1.65; }
+  .workflow-step > div { color: #9b9b93; }
+
+  .architecture-section { display: grid; grid-template-columns: .82fr 1.18fr; align-items: center; gap: 80px; border-top: 1px solid #dadad2; background: #ededE7; padding: 130px 92px; }
+  .inline-link { display: inline-flex; align-items: center; gap: 7px; margin-top: 27px; color: #272723; font-size: 11px; font-weight: 600; text-decoration: none; }
+  .architecture-diagram { display: grid; grid-template-columns: 120px 60px 145px 38px 150px; align-items: center; min-height: 340px; border: 1px solid #d0d0c8; background-color: #f7f7f3; background-image: linear-gradient(#e4e4de 1px,transparent 1px),linear-gradient(90deg,#e4e4de 1px,transparent 1px); background-size: 24px 24px; padding: 45px; box-shadow: 0 15px 50px rgba(35,35,30,.05); }
+  .diagram-inputs { display: flex; flex-direction: column; gap: 22px; }
+  .diagram-inputs > div, .diagram-output, .diagram-core { display: flex; flex-direction: column; border: 1px solid #c9c9c1; background: #fff; padding: 11px; }
+  .diagram-inputs strong, .diagram-output small { font-family: "IBM Plex Mono",monospace; font-size: 7px; letter-spacing: .08em; }
+  .diagram-inputs small, .diagram-output span, .diagram-core small { margin-top: 4px; color: #92928a; font-size: 7px; }
+  .diagram-lines { display: flex; flex-direction: column; gap: 53px; }
+  .diagram-lines span { height: 1px; background: #aaa9a1; }
+  .diagram-core { align-items: center; padding: 19px 10px; text-align: center; }
+  .diagram-core .brand-mark { margin-bottom: 10px; }
+  .diagram-core strong { font-family: "IBM Plex Mono",monospace; font-size: 8px; letter-spacing: .07em; }
+  .diagram-arrow { color: #7f7f77; text-align: center; }
+  .diagram-output { padding: 16px 13px; }
+  .diagram-output strong { margin-top: 8px; font-size: 11px; }
+
+  .principles-section { padding: 140px 92px; }
+  .principles-section > h2 { max-width: 650px; }
+  .principles-grid { display: grid; grid-template-columns: repeat(4,1fr); margin-top: 70px; border-top: 1px solid #d7d7cf; border-left: 1px solid #d7d7cf; }
+  .principles-grid article { min-height: 255px; border-right: 1px solid #d7d7cf; border-bottom: 1px solid #d7d7cf; padding: 28px; }
+  .principles-grid article > span { display: grid; height: 33px; width: 33px; place-items: center; border: 1px solid #d3d3cb; border-radius: 6px; background: #fbfbf8; color: #62625b; font-family: "IBM Plex Mono",monospace; }
+  .principles-grid h3 { margin-top: 62px; font-size: 15px; font-weight: 600; }
+  .principles-grid p { margin-top: 10px; color: #7e7e76; font-size: 11px; line-height: 1.7; }
+
+  .open-source-section { display: grid; grid-template-columns: 1fr 1fr; gap: 100px; border-top: 1px solid #dadad2; background: #1b1b18; padding: 125px 92px; color: #f2f2ec; }
+  .open-source-section .marketing-kicker { color: #85857e; }
+  .open-source-copy > p { max-width: 470px; color: #aaa9a1; font-size: 14px; line-height: 1.75; }
+  .repo-card { margin-top: 40px; border: 1px solid #3c3c37; border-radius: 8px; background: #22221f; padding: 20px; }
+  .repo-card, .repo-card > div, .repo-card a { display: flex; align-items: center; justify-content: space-between; }
+  .repo-card > div { gap: 10px; font-family: "IBM Plex Mono",monospace; font-size: 10px; }
+  .repo-card > div svg { height: 19px; width: 19px; fill: #e8e8e2; }
+  .repo-card a { gap: 7px; color: #aaa9a1; font-size: 10px; text-decoration: none; }
+
+  .final-cta { display: flex; max-width: 1320px; margin: 0 auto; align-items: center; flex-direction: column; border-right: 1px solid #dadad2; border-left: 1px solid #dadad2; padding: 145px 32px; text-align: center; }
+  .final-cta p { max-width: 520px; margin-top: 22px; color: #73736c; font-size: 14px; line-height: 1.7; }
+  .final-cta .marketing-button { margin-top: 30px; }
+  .marketing-footer { display: grid; grid-template-columns: 1fr 1.4fr 1fr auto; max-width: 1320px; margin: 0 auto; align-items: center; gap: 30px; border-top: 1px solid #dadad2; padding: 40px 34px 46px; }
+  .marketing-footer p, .marketing-footer small { color: #92928a; font-size: 10px; }
+  .marketing-footer > div:not(.marketing-wordmark) { display: flex; justify-content: center; gap: 22px; }
+  .marketing-footer > div a { color: #65655e; font-size: 10px; text-decoration: none; }
+
   .app-shell {
     display: grid;
     grid-template-columns: 248px minmax(520px, 1fr) minmax(340px, 410px);
@@ -132,6 +258,40 @@
 @keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(.985); } }
 
 @media (max-width: 1180px) {
+  .product-stage { margin: 0 20px; padding-right: 35px; padding-left: 35px; }
+  .workflow-section, .architecture-section, .principles-section, .open-source-section { padding-right: 54px; padding-left: 54px; }
+  .architecture-section { gap: 40px; }
+  .architecture-diagram { transform: scale(.88); transform-origin: center; }
   .app-shell { grid-template-columns: 220px minmax(480px, 1fr) 350px; }
   .content-column { padding-left: 28px; padding-right: 28px; }
+}
+
+@media (max-width: 760px) {
+  .marketing-nav { height: 62px; padding: 0 19px; }
+  .marketing-links { display: none; }
+  .marketing-sign-in { display: none; }
+  .marketing-actions { gap: 0; }
+  .marketing-actions .marketing-button { height: 34px; padding: 0 11px; font-size: 0; }
+  .marketing-actions .marketing-button::before { content: "Live demo"; font-size: 11px; }
+  .marketing-hero { padding: 90px 20px 70px; }
+  .marketing-hero h1 { max-width: 100%; margin-top: 25px; font-size: 44px; letter-spacing: -.058em; }
+  .marketing-hero > p:not(.hero-footnote) { font-size: 14px; }
+  .hero-actions { width: 100%; flex-direction: column; }
+  .product-stage { width: calc(100% - 24px); margin: 0 12px; overflow: hidden; padding: 35px 18px 0; }
+  .product-window { min-width: 850px; transform: scale(.72); transform-origin: left top; margin-right: -610px; margin-bottom: -135px; }
+  .marketing-section { border-right: 0; border-left: 0; }
+  .workflow-section, .architecture-section, .open-source-section { min-width: 0; grid-template-columns: minmax(0,1fr); gap: 65px; padding: 95px 24px; }
+  .workflow-step { grid-template-columns: 30px 1fr 18px; }
+  .workflow-step p { grid-column: 2; }
+  .architecture-section { overflow: hidden; }
+  .architecture-diagram { width: 650px; transform: scale(.53); transform-origin: left center; margin-right: -330px; margin-bottom: -70px; }
+  .principles-section { padding: 95px 24px; }
+  .principles-grid { grid-template-columns: 1fr 1fr; margin-top: 50px; }
+  .principles-grid article { min-height: 220px; padding: 22px; }
+  .principles-grid h3 { margin-top: 42px; }
+  .open-source-section { gap: 45px; }
+  .repo-card { align-items: flex-start; flex-direction: column; gap: 20px; }
+  .final-cta { padding: 100px 24px; }
+  .marketing-footer { grid-template-columns: 1fr auto; padding: 35px 20px; }
+  .marketing-footer p, .marketing-footer > div:not(.marketing-wordmark) { display: none; }
 }
