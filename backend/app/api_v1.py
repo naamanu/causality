@@ -89,7 +89,7 @@ def auth_callback(code: str, db: Session = Depends(get_db)):
         principal = principal_from_workos(exchange_code(code), db)
     except httpx.HTTPError as exc:
         raise HTTPException(502, "identity provider exchange failed") from exc
-    response = RedirectResponse(settings.app_base_url, status_code=303)
+    response = RedirectResponse(f"{settings.app_base_url.rstrip('/')}/app", status_code=303)
     response.set_cookie("causality_session", encode_session(principal), httponly=True, secure=settings.production, samesite="lax", max_age=3600)
     return response
 
