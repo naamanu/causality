@@ -4,24 +4,23 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        // monospace-meets-editorial: data in mono, headlines in a serif display
-        mono: ["'JetBrains Mono'", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
-        serif: ["'Newsreader'", "Georgia", "Cambria", "serif"],
+        sans: ["'Instrument Sans'", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["'IBM Plex Mono'", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       colors: {
         ink: {
-          950: "#0a0b0d",
-          900: "#0e1013",
-          850: "#14171c",
-          800: "#1b1f26",
-          700: "#272c35",
-          600: "#3a4150",
+          950: "#171714",
+          900: "#242420",
+          850: "#34342f",
+          800: "#d9d9d2",
+          700: "#c8c8c1",
+          600: "#8a8a83",
         },
         // status palette — reused by spans, logs, hypotheses
-        ok: "#34d399",
-        degraded: "#fbbf24",
-        error: "#fb7185",
-        accent: "#e2c08d", // warm editorial accent
+        ok: "#2f9b65",
+        degraded: "#b97918",
+        error: "#b94e45",
+        accent: "#171714",
       },
       keyframes: {
         "fade-up": {

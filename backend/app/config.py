@@ -9,7 +9,8 @@ def _bool(name: str, default: bool = False) -> bool:
 
 
 def _database_url() -> str:
-    value = os.getenv("DATABASE_URL", "sqlite:///./causality.sqlite")
+    default = "sqlite:////tmp/causality-demo.sqlite" if os.getenv("APP_ENV") == "demo" else "sqlite:///./causality.sqlite"
+    value = os.getenv("DATABASE_URL", default)
     if value.startswith("postgresql://"):
         return value.replace("postgresql://", "postgresql+psycopg://", 1)
     if value.startswith("postgres://"):
@@ -46,6 +47,10 @@ class Settings:
     @property
     def production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def demo(self) -> bool:
+        return self.app_env == "demo"
 
     def validate(self) -> None:
         if not self.production:

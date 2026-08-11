@@ -4,53 +4,134 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
+    font-synthesis: none;
   }
-  html,
-  body,
-  #root {
-    height: 100%;
-  }
+  html, body, #root { height: 100%; }
   body {
-    @apply bg-ink-950 font-mono antialiased;
-    color: #e7e9ee;
+    margin: 0;
+    background: #f5f5f1;
+    color: #171714;
+    font-family: "Instrument Sans", Inter, ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
-  /* thin, unobtrusive scrollbars to match the editorial tone */
-  ::-webkit-scrollbar {
-    width: 9px;
-    height: 9px;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-ink-700 rounded-full;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
+  button, input, select { font: inherit; }
+  button { -webkit-tap-highlight-color: transparent; }
+  ::selection { background: #dce7ff; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #d7d7d0; border: 2px solid transparent; border-radius: 99px; background-clip: padding-box; }
 }
 
 @layer components {
-  /* loading shimmer for skeleton blocks */
-  .skeleton {
-    @apply relative overflow-hidden bg-ink-800 rounded;
+  .app-shell {
+    display: grid;
+    grid-template-columns: 248px minmax(520px, 1fr) minmax(340px, 410px);
+    grid-template-rows: 52px minmax(0, 1fr);
+    height: 100vh;
+    min-width: 1040px;
+    overflow: hidden;
+    background: #f5f5f1;
   }
-  .skeleton::after {
-    content: "";
-    @apply absolute inset-0;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.05),
-      transparent
-    );
-    transform: translateX(-100%);
-    animation: shimmer 1.4s infinite;
+  .topbar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #dfdfd8;
+    background: #fbfbf8;
+    padding: 0 14px;
+    z-index: 10;
   }
+  .brand-mark {
+    display: grid; height: 27px; width: 27px; place-items: center;
+    border-radius: 7px; background: #171714; color: #fff;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 600;
+  }
+  .brand-name { font-size: 14px; font-weight: 650; letter-spacing: -0.02em; }
+  .topbar-divider { height: 20px; width: 1px; background: #dfdfd8; margin: 0 2px 0 6px; }
+  .workspace-switcher { display: flex; align-items: center; gap: 7px; border-radius: 6px; padding: 4px 6px; font-size: 12px; color: #4e4e48; }
+  .workspace-switcher:hover { background: #efefe9; }
+  .workspace-avatar { display: grid; height: 20px; width: 20px; place-items: center; border: 1px solid #d9d9d2; border-radius: 5px; background: white; font-size: 10px; font-weight: 600; }
+  .chevron { height: 13px; width: 13px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+  .environment-pill { display: flex; align-items: center; gap: 6px; margin-left: 3px; border: 1px solid #dfdfd8; border-radius: 99px; background: white; padding: 3px 8px; color: #6d6d66; font-size: 10px; }
+  .live-dot { height: 6px; width: 6px; border-radius: 50%; background: #bbbcb5; }
+  .live-dot.is-live { background: #2f9b65; box-shadow: 0 0 0 2px #ddf2e7; }
+  .topbar-link { color: #76766f; font-size: 11px; text-decoration: none; }
+  .topbar-link:hover { color: #171714; }
+  .user-avatar { display: grid; height: 27px; width: 27px; place-items: center; border-radius: 50%; background: #e7e7df; color: #56564f; font-size: 10px; font-weight: 600; }
+
+  .navigation-panel { display: flex; min-height: 0; flex-direction: column; border-right: 1px solid #dfdfd8; background: #f7f7f3; }
+  .investigation-canvas { min-width: 0; overflow-y: auto; background: #fff; }
+  .content-column { margin: 0 auto; max-width: 940px; padding: 36px 42px 72px; }
+  .analysis-panel { min-width: 0; border-left: 1px solid #dfdfd8; background: #fafaf7; }
+
+  .button { display: inline-flex; height: 34px; align-items: center; justify-content: center; gap: 7px; border-radius: 7px; padding: 0 12px; font-size: 12px; font-weight: 560; transition: 120ms ease; }
+  .button svg { height: 14px; width: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+  .button:disabled { cursor: not-allowed; opacity: .42; }
+  .button-primary { background: #191916; color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.04), 0 1px 1px rgba(0,0,0,.08); }
+  .button-primary:hover:not(:disabled) { background: #34342f; transform: translateY(-1px); }
+  .button-secondary { border: 1px solid #d9d9d2; background: #fff; color: #4f4f49; }
+  .button-secondary:hover { background: #f5f5f1; color: #171714; }
+  .icon-button { display: grid; height: 30px; width: 30px; place-items: center; border-radius: 6px; color: #8a8a83; font-size: 20px; }
+  .icon-button:hover { background: #efefe9; color: #171714; }
+
+  .section-label { display: flex; align-items: center; justify-content: space-between; color: #8c8c84; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+  .section-label span { font-family: "IBM Plex Mono", monospace; font-weight: 400; }
+  .incident-row { display: grid; width: 100%; grid-template-columns: 8px minmax(0,1fr); align-items: center; gap: 8px; border-radius: 7px; padding: 9px 9px; text-align: left; color: #4f4f49; }
+  .incident-row:hover { background: #ecece6; }
+  .incident-row.is-selected { background: #e8e8e2; box-shadow: inset 0 0 0 1px #deded7; }
+  .incident-status { height: 6px; width: 6px; border: 1px solid #aaa9a2; border-radius: 50%; background: #fff; }
+  .incident-row.is-selected .incident-status { border-color: #171714; background: #171714; box-shadow: 0 0 0 2px #fff; }
+  .usage-summary { border-top: 1px solid #dfdfd8; padding: 14px 16px 16px; }
+  .usage-track { height: 3px; margin-top: 8px; overflow: hidden; border-radius: 99px; background: #e5e5df; }
+  .usage-track span { display: block; height: 100%; border-radius: inherit; background: #62625c; }
+  .setup-card { border: 1px solid #deded7; border-radius: 9px; background: #fff; padding: 15px; box-shadow: 0 1px 2px rgba(0,0,0,.025); }
+  .eyebrow { color: #8a8a82; font-family: "IBM Plex Mono", monospace; font-size: 9px; font-weight: 500; letter-spacing: .11em; text-transform: uppercase; }
+  .secret-value { display: block; margin-top: 10px; overflow-wrap: anywhere; border-radius: 6px; background: #f1f1ec; padding: 9px; color: #34342f; font-family: "IBM Plex Mono", monospace; font-size: 10px; line-height: 1.6; }
+  .field-label { display: block; color: #5e5e57; font-size: 11px; font-weight: 560; }
+  .field-input { display: block; width: 100%; height: 37px; margin-top: 6px; border: 1px solid #d8d8d1; border-radius: 7px; background: #fff; padding: 0 10px; color: #20201c; font-size: 12px; outline: none; transition: 120ms ease; }
+  .field-input::placeholder { color: #aaa9a2; }
+  .field-input:focus { border-color: #85857d; box-shadow: 0 0 0 3px rgba(30,30,27,.07); }
+  select.field-input { appearance: auto; }
+
+  .modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(31,31,27,.28); padding: 24px; backdrop-filter: blur(3px); }
+  .modal { width: min(460px, 100%); overflow: hidden; border: 1px solid #d4d4cc; border-radius: 12px; background: #fbfbf8; box-shadow: 0 24px 70px rgba(30,30,25,.19); animation: modal-in 180ms cubic-bezier(.2,.8,.2,1); }
+  .modal-header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 1px solid #e1e1da; padding: 20px 22px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #e1e1da; background: #f6f6f2; padding: 13px 18px; }
+  .range-control { display: flex; align-items: center; gap: 14px; margin-top: 7px; border: 1px solid #d8d8d1; border-radius: 7px; background: #fff; padding: 9px 10px; }
+  .range-control input { min-width: 0; flex: 1; accent-color: #22221e; }
+  .range-control span { width: 68px; color: #4e4e48; font-family: "IBM Plex Mono", monospace; font-size: 10px; }
+
+  .empty-canvas { display: flex; min-height: 70vh; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; }
+  .empty-canvas .empty-icon { display: grid; height: 40px; width: 40px; place-items: center; border: 1px solid #dbdbd4; border-radius: 10px; background: #fafaf7; color: #777770; }
+  .empty-canvas h2 { margin-top: 18px; color: #252521; font-size: 18px; font-weight: 620; letter-spacing: -.02em; }
+  .empty-canvas p { margin-top: 7px; max-width: 360px; color: #818179; font-size: 12px; line-height: 1.65; }
+  .error-notice { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1ceca; background: #fff7f5; padding: 9px 18px; color: #a33d34; font-size: 11px; }
+  .error-notice button { font-weight: 600; }
+
+  .login-screen { position: relative; display: grid; min-height: 100%; place-items: center; overflow: hidden; background: #f5f5f0; padding: 32px; }
+  .login-screen::before { content: ""; position: absolute; inset: 0; opacity: .45; background-image: linear-gradient(#deded7 1px, transparent 1px), linear-gradient(90deg, #deded7 1px, transparent 1px); background-size: 48px 48px; mask-image: radial-gradient(circle at center, black, transparent 65%); }
+  .login-wordmark { position: absolute; left: 24px; top: 20px; display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 650; }
+  .login-wordmark span { display: grid; height: 26px; width: 26px; place-items: center; border-radius: 7px; background: #171714; color: white; font-family: "IBM Plex Mono", monospace; font-size: 11px; }
+  .login-card { position: relative; width: min(410px, 100%); border: 1px solid #d9d9d1; border-radius: 14px; background: rgba(255,255,252,.92); padding: 36px; box-shadow: 0 18px 70px rgba(42,42,36,.08); backdrop-filter: blur(12px); }
+  .login-card h1 { margin-top: 14px; font-size: 35px; font-weight: 620; letter-spacing: -.045em; line-height: 1.08; }
+  .login-card > p { margin-top: 15px; color: #74746d; font-size: 13px; line-height: 1.7; }
+  .login-footer { position: absolute; bottom: 22px; color: #92928a; font-family: "IBM Plex Mono", monospace; font-size: 9px; letter-spacing: .05em; }
+  .loading-screen { display: flex; height: 100%; align-items: center; justify-content: center; gap: 12px; background: #f7f7f3; color: #777770; font-size: 12px; }
+
+  .skeleton { position: relative; overflow: hidden; border-radius: 5px; background: #e9e9e3; }
+  .skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.7), transparent); animation: shimmer 1.4s infinite; }
 }
 
-/* Defined here (not just in tailwind.config) so the shimmer animation always
-   exists — Tailwind only emits keyframes for animations used as utilities. */
-@keyframes shimmer {
-  100% {
-    transform: translateX(100%);
-  }
+.text-strong { color: #242420; }
+.text-muted { color: #777770; }
+.text-faint { color: #a0a098; }
+.text-danger { color: #af453c; }
+
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+@keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(.985); } }
+
+@media (max-width: 1180px) {
+  .app-shell { grid-template-columns: 220px minmax(480px, 1fr) 350px; }
+  .content-column { padding-left: 28px; padding-right: 28px; }
 }
