@@ -34,6 +34,7 @@ class Settings:
     workos_client_id: str = os.getenv("WORKOS_CLIENT_ID", "")
     workos_api_key: str = os.getenv("WORKOS_API_KEY", "")
     dev_auth_enabled: bool = _bool("DEV_AUTH_ENABLED", True)
+    demo_ingestion_key: str = os.getenv("DEMO_INGESTION_KEY", "")
     telemetry_retention_days: int = int(os.getenv("TELEMETRY_RETENTION_DAYS", "7"))
     findings_retention_days: int = int(os.getenv("FINDINGS_RETENTION_DAYS", "90"))
     max_members: int = int(os.getenv("DEFAULT_MAX_MEMBERS", "10"))

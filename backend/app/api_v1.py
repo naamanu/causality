@@ -2,28 +2,54 @@ from __future__ import annotations
 
 import gzip
 import json
+import logging
 import time
 from datetime import datetime, timezone
 from typing import Iterator
 
 import httpx
 import redis
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .auth import Principal, current_principal, encode_session, exchange_code, login_redirect, principal_from_workos, require_admin
+from .auth import (
+    Principal,
+    current_principal,
+    encode_session,
+    exchange_code,
+    login_redirect,
+    principal_from_workos,
+    require_admin,
+)
 from .config import settings
-from .db import AnalysisRecord, AuditEvent, Environment, HypothesisRecord, IncidentRecord, IngestionKey, UsageDaily, Workspace, get_db, utcnow
+from .db import (
+    AnalysisRecord,
+    AuditEvent,
+    Environment,
+    HypothesisRecord,
+    IncidentRecord,
+    IngestionKey,
+    UsageDaily,
+    Workspace,
+    get_db,
+    utcnow,
+)
+from .demo_live import demo_live_telemetry, deterministic_evidence_analysis
+from .pipeline import generate_from_context
 from .security import constant_time_key_matches, issue_ingestion_key
 from .tasks import _decode_otlp, ingest_otlp, run_analysis
 from .telemetry import normalize_otlp_json, query_window
 
-
 router = APIRouter(prefix="/api/v1")
 otlp_router = APIRouter()
+logger = logging.getLogger("causality.api")
+
+# The one incident seeded by `demo.seed_demo_control_plane` for the public preview.
+# Analyses for it are scripted, not generated — see `_complete_demo_analysis`.
+DEMO_INCIDENT_ID = "inc_demo_slow_db"
 
 
 class EnvironmentCreate(BaseModel):
@@ -170,10 +196,19 @@ def _incident_json(x: IncidentRecord) -> dict:
 
 
 @router.post("/incidents", status_code=201)
-def create_incident(body: IncidentCreate, p: Principal = Depends(current_principal), db: Session = Depends(get_db)):
+def create_incident(
+    body: IncidentCreate,
+    authorization: str | None = Header(None),
+    p: Principal = Depends(current_principal),
+    db: Session = Depends(get_db),
+):
     env = db.get(Environment, body.environment_id)
     if env is None or env.workspace_id != p.workspace_id:
         raise HTTPException(404, "environment not found")
+    if settings.demo:
+        ingestion_key, _workspace = _authenticate_ingestion(authorization, db)
+        if ingestion_key.workspace_id != p.workspace_id or ingestion_key.environment_id != env.id:
+            raise HTTPException(403, "ingestion key cannot create incidents in this environment")
     if body.window_end <= body.window_start or body.window_end - body.window_start > settings.analysis_window_max_ms:
         raise HTTPException(422, "window must be positive and no longer than 60 minutes")
     inc = IncidentRecord(workspace_id=p.workspace_id, environment_id=env.id, created_by=p.user_id,
@@ -196,18 +231,53 @@ def incident_telemetry(incident_id: str, p: Principal = Depends(current_principa
     inc = db.get(IncidentRecord, incident_id)
     if inc is None or inc.workspace_id != p.workspace_id:
         raise HTTPException(404, "incident not found")
-    spans, logs = query_window(p.workspace_id, inc.environment_id, inc.window_start, inc.window_end, inc.services)
-    if settings.demo and incident_id == "inc_demo_slow_db":
-        from .demo import demo_telemetry
-        spans, logs = demo_telemetry()
+    spans, logs = _telemetry_for_incident(inc)
     return {"spans": [x.model_dump() for x in spans], "logs": [x.model_dump() for x in logs]}
 
 
+def _telemetry_for_incident(inc: IncidentRecord):
+    if settings.demo:
+        spans, logs = demo_live_telemetry.query(
+            inc.workspace_id,
+            inc.environment_id,
+            inc.window_start,
+            inc.window_end,
+            inc.services,
+        )
+        if spans or logs:
+            return spans, logs
+        if inc.id == DEMO_INCIDENT_ID:
+            from .demo import demo_telemetry
+
+            return demo_telemetry()
+        return [], []
+    return query_window(
+        inc.workspace_id,
+        inc.environment_id,
+        inc.window_start,
+        inc.window_end,
+        inc.services,
+    )
+
+
 @router.post("/incidents/{incident_id}/analyses", status_code=202)
-def create_analysis(incident_id: str, body: AnalysisCreate, p: Principal = Depends(current_principal), db: Session = Depends(get_db)):
+def create_analysis(
+    incident_id: str,
+    body: AnalysisCreate,
+    authorization: str | None = Header(None),
+    p: Principal = Depends(current_principal),
+    db: Session = Depends(get_db),
+):
     inc = db.get(IncidentRecord, incident_id)
     if inc is None or inc.workspace_id != p.workspace_id:
         raise HTTPException(404, "incident not found")
+    if settings.demo and incident_id != DEMO_INCIDENT_ID:
+        ingestion_key, _workspace = _authenticate_ingestion(authorization, db)
+        if (
+            ingestion_key.workspace_id != p.workspace_id
+            or ingestion_key.environment_id != inc.environment_id
+        ):
+            raise HTTPException(403, "ingestion key cannot analyze incidents in this environment")
     existing = db.scalar(select(AnalysisRecord).where(AnalysisRecord.workspace_id == p.workspace_id, AnalysisRecord.idempotency_key == body.idempotency_key))
     if existing:
         return _analysis_json(existing, db)
@@ -221,8 +291,11 @@ def create_analysis(incident_id: str, body: AnalysisCreate, p: Principal = Depen
         usage = UsageDaily(workspace_id=p.workspace_id, day=day); db.add(usage)
     usage.analyses = (usage.analyses or 0) + 1
     _audit(db, p, "analysis.created", "analysis", row.id)
-    if settings.demo and incident_id == "inc_demo_slow_db":
-        _complete_demo_analysis(row, db)
+    if settings.demo:
+        if incident_id == DEMO_INCIDENT_ID:
+            _complete_demo_analysis(row, db)
+        else:
+            _complete_live_demo_analysis(row, inc, db)
         db.commit()
         return _analysis_json(row, db)
     # The worker must not race the transaction that created its job.
@@ -232,6 +305,12 @@ def create_analysis(incident_id: str, body: AnalysisCreate, p: Principal = Depen
 
 
 def _complete_demo_analysis(row: AnalysisRecord, db: Session) -> None:
+    """Fill the public preview incident with a fixed, hand-written result.
+
+    This is a scripted product preview, not a model run. Nothing here calls
+    Anthropic, so the analysis reports no model and no token/latency metrics;
+    responses carry `scripted_preview: true` so the UI can say so plainly.
+    """
     from .demo import demo_telemetry
     spans, logs = demo_telemetry()
     candidates = [
@@ -245,18 +324,82 @@ def _complete_demo_analysis(row: AnalysisRecord, db: Session) -> None:
             rank=rank, confidence=confidence, title=title, explanation=explanation,
             evidence_span_ids=span_ids, evidence_log_ids=log_ids,
         ))
+    # No model call happened here, so no model name and no usage metrics are recorded.
+    # Leaving `model` as None makes `_analysis_json` emit `metrics: null`, and the
+    # `scripted_preview` flag tells the client to label the result as scripted.
     row.status = "completed"
-    row.model = "causality-demo / claude-sonnet"
-    row.input_tokens = 2293
-    row.output_tokens = 614
-    row.latency_ms = 1842
-    row.tool_calls = 1
     row.completed_at = utcnow()
+
+
+def _complete_live_demo_analysis(row: AnalysisRecord, inc: IncidentRecord, db: Session) -> None:
+    """Analyze the checkout lab's measured telemetry without demo infrastructure."""
+
+    spans, logs = _telemetry_for_incident(inc)
+    if not spans and not logs:
+        row.status = "failed"
+        row.error = "no telemetry found in the selected window"
+        row.completed_at = utcnow()
+        return
+
+    try:
+        hypotheses, metrics = generate_from_context(
+            row.id,
+            inc.title,
+            inc.summary,
+            spans,
+            logs,
+        )
+    except Exception as exc:  # noqa: BLE001 - provider/SDK failures share the honest fallback
+        logger.warning("live demo model analysis failed; using measured fallback: %s", exc)
+        # Keep the public demo useful during provider outages without inventing
+        # measurements. This fallback only describes attributes present in OTLP.
+        hypotheses, metrics = deterministic_evidence_analysis(row.id, spans, logs)
+        if not hypotheses:
+            row.status = "failed"
+            row.error = "analysis provider unavailable and no deterministic evidence matched"
+            row.completed_at = utcnow()
+            return
+
+    for hypothesis in hypotheses:
+        db.add(
+            HypothesisRecord(
+                id=hypothesis.id,
+                workspace_id=row.workspace_id,
+                analysis_id=row.id,
+                rank=hypothesis.rank,
+                confidence=hypothesis.confidence,
+                title=hypothesis.title,
+                explanation=hypothesis.explanation,
+                evidence_span_ids=hypothesis.evidence_span_ids,
+                evidence_log_ids=hypothesis.evidence_log_ids,
+            )
+        )
+    row.status = "completed"
+    row.model = metrics.model
+    row.input_tokens = metrics.input_tokens
+    row.output_tokens = metrics.output_tokens
+    row.latency_ms = metrics.latency_ms
+    row.tool_calls = metrics.tool_calls
+    row.completed_at = utcnow()
+
+    day = datetime.now(timezone.utc).date().isoformat()
+    usage = db.scalar(
+        select(UsageDaily).where(
+            UsageDaily.workspace_id == row.workspace_id,
+            UsageDaily.day == day,
+        )
+    )
+    if usage is None:
+        usage = UsageDaily(workspace_id=row.workspace_id, day=day)
+        db.add(usage)
+    usage.input_tokens = (usage.input_tokens or 0) + metrics.input_tokens
+    usage.output_tokens = (usage.output_tokens or 0) + metrics.output_tokens
 
 
 def _analysis_json(row: AnalysisRecord, db: Session) -> dict:
     hypotheses = db.scalars(select(HypothesisRecord).where(HypothesisRecord.analysis_id == row.id).order_by(HypothesisRecord.rank)).all()
     return {"id": row.id, "incident_id": row.incident_id, "status": row.status, "error": row.error,
+            "scripted_preview": settings.demo and row.incident_id == DEMO_INCIDENT_ID,
             "metrics": {"model": row.model, "input_tokens": row.input_tokens, "output_tokens": row.output_tokens,
                         "latency_ms": row.latency_ms, "tool_calls": row.tool_calls, "hypothesis_count": len(hypotheses)} if row.model else None,
             "hypotheses": [{"id": h.id, "incident_id": row.incident_id, "rank": h.rank, "confidence": h.confidence,
@@ -352,15 +495,36 @@ async def _receive_otlp(kind: str, request: Request, authorization: str | None, 
         rows, warnings = normalize_otlp_json(kind, data)
     except Exception as exc:
         raise HTTPException(400, f"invalid OTLP {kind} payload") from exc
-    _consume(key.workspace_id, "records", len(rows), ws.max_records_month)
     key.last_used_at = utcnow()
-    ingest_otlp.delay(kind, key.workspace_id, key.environment_id, body.hex(), content_type)
+    if settings.demo:
+        demo_live_telemetry.ingest(kind, key.workspace_id, key.environment_id, rows)
+        environment = db.get(Environment, key.environment_id)
+        if environment and environment.workspace_id == key.workspace_id:
+            environment.last_seen_at = utcnow()
+        day = datetime.now(timezone.utc).date().isoformat()
+        usage = db.scalar(
+            select(UsageDaily).where(
+                UsageDaily.workspace_id == key.workspace_id,
+                UsageDaily.day == day,
+            )
+        )
+        if usage is None:
+            usage = UsageDaily(workspace_id=key.workspace_id, day=day)
+            db.add(usage)
+        usage.telemetry_records = (usage.telemetry_records or 0) + len(rows)
+    else:
+        _consume(key.workspace_id, "records", len(rows), ws.max_records_month)
+        ingest_otlp.delay(kind, key.workspace_id, key.environment_id, body.hex(), content_type)
     if "json" not in content_type:
         if kind == "traces":
-            from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
+            from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
+                ExportTraceServiceResponse,
+            )
             payload = ExportTraceServiceResponse().SerializeToString()
         else:
-            from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceResponse
+            from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import (
+                ExportLogsServiceResponse,
+            )
             payload = ExportLogsServiceResponse().SerializeToString()
         return Response(content=payload, media_type="application/x-protobuf")
     return Response(content=json.dumps({"partialSuccess": {"rejectedSpans" if kind == "traces" else "rejectedLogRecords": 0, "errorMessage": "; ".join(warnings)}}), media_type="application/json")
