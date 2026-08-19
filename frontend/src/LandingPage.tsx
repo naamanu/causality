@@ -1,4 +1,7 @@
 const githubUrl = "https://github.com/naamanu/causality";
+const demoLabUrl = "https://web-production-f2c5f4.up.railway.app";
+// Derived so the displayed repo can never drift from the link it points at.
+const [githubOwner, githubRepo] = new URL(githubUrl).pathname.replace(/^\//, "").split("/");
 
 export default function LandingPage() {
   return (
@@ -15,7 +18,7 @@ export default function LandingPage() {
         </nav>
         <div className="marketing-actions">
           <a className="marketing-sign-in" href="/app">Sign in</a>
-          <a className="marketing-button marketing-button-dark" href="/app">Try the live demo <Arrow /></a>
+          <a className="marketing-button marketing-button-dark" href={demoLabUrl}>Try the live demo <Arrow /></a>
         </div>
       </header>
 
@@ -25,10 +28,10 @@ export default function LandingPage() {
           <h1>Find the cause.<br />Not another chart.</h1>
           <p>Causality turns noisy production telemetry into ranked, evidence-backed explanations—so your team can move from alert to fix with confidence.</p>
           <div className="hero-actions">
-            <a className="marketing-button marketing-button-dark" href="/app">Investigate the demo <Arrow /></a>
+            <a className="marketing-button marketing-button-dark" href={demoLabUrl}>Run a live incident <Arrow /></a>
             <a className="marketing-button marketing-button-light" href={githubUrl} target="_blank" rel="noreferrer"><GitHub /> View on GitHub</a>
           </div>
-          <p className="hero-footnote">No account required for the demo.</p>
+          <p className="hero-footnote">Synthetic workload · real telemetry · no account required</p>
         </section>
 
         <section className="product-stage" id="product" aria-label="Causality product preview">
@@ -127,7 +130,7 @@ export default function LandingPage() {
           <div className="open-source-copy">
             <p>The core of Causality is public. Read the code, understand how conclusions are produced, and run it inside your own environment.</p>
             <div className="repo-card">
-              <div><GitHub /><span>janettai / <b>causality</b></span></div>
+              <div><GitHub /><span>{githubOwner} / <b>{githubRepo}</b></span></div>
               <a href={githubUrl} target="_blank" rel="noreferrer">Browse repository <Arrow /></a>
             </div>
           </div>
@@ -137,7 +140,7 @@ export default function LandingPage() {
           <div className="marketing-kicker">Start with a real incident</div>
           <h2>Turn telemetry into an answer.</h2>
           <p>Open the seeded investigation and see the complete path from trace to ranked cause.</p>
-          <a className="marketing-button marketing-button-dark" href="/app">Try the live demo <Arrow /></a>
+          <a className="marketing-button marketing-button-dark" href={demoLabUrl}>Open the checkout lab <Arrow /></a>
         </section>
       </main>
 
@@ -145,7 +148,7 @@ export default function LandingPage() {
         <div className="marketing-wordmark"><span>C</span> causality</div>
         <p>Open-source incident intelligence for modern systems.</p>
         <div><a href={githubUrl}>GitHub</a><a href="/docs">Docs</a><a href="/app">Sign in</a></div>
-        <small>© {new Date().getFullYear()} Janett AI</small>
+        <small>© {new Date().getFullYear()} Causality · MIT licensed</small>
       </footer>
     </div>
   );

@@ -6,7 +6,17 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select
 
-from .db import Environment, IncidentRecord, UsageDaily, Workspace, session_scope, utcnow
+from .config import settings
+from .db import (
+    Environment,
+    IncidentRecord,
+    IngestionKey,
+    UsageDaily,
+    Workspace,
+    session_scope,
+    utcnow,
+)
+from .security import hash_key
 from .store import store
 
 DEMO_INCIDENT_ID = "inc_demo_slow_db"
@@ -41,11 +51,22 @@ def seed_demo_control_plane() -> None:
                 window_start=bundle.incident.window_start, window_end=bundle.incident.window_end,
                 summary=bundle.incident.summary,
             ))
+        if settings.demo_ingestion_key:
+            prefix = settings.demo_ingestion_key.split(".", 1)[0]
+            key = db.get(IngestionKey, "key_demo_checkout_lab")
+            if key is None:
+                db.add(IngestionKey(
+                    id="key_demo_checkout_lab", workspace_id=workspace.id, environment_id=environment.id,
+                    name="Checkout Lab", prefix=prefix, secret_hash=hash_key(settings.demo_ingestion_key),
+                ))
+            else:
+                key.prefix = prefix
+                key.secret_hash = hash_key(settings.demo_ingestion_key)
+                key.revoked_at = None
         day = datetime.now(timezone.utc).date().isoformat()
         usage = db.scalar(select(UsageDaily).where(UsageDaily.workspace_id == workspace.id, UsageDaily.day == day))
         if usage is None:
-            db.add(UsageDaily(workspace_id=workspace.id, day=day, telemetry_records=128_420, analyses=18,
-                              input_tokens=41_280, output_tokens=9_140))
+            db.add(UsageDaily(workspace_id=workspace.id, day=day))
 
 
 def demo_telemetry():

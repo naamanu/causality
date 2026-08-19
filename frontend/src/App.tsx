@@ -28,7 +28,8 @@ export default function App() {
     setWorkspace(nextWorkspace);
     setEnvironments(nextEnvironments);
     setIncidents(nextIncidents);
-    setSelected((current) => current ?? nextIncidents[0] ?? null);
+    const linkedIncidentId = new URLSearchParams(window.location.search).get("incident");
+    setSelected((current) => current ?? nextIncidents.find((item) => item.id === linkedIncidentId) ?? nextIncidents[0] ?? null);
     setUsage(nextUsage);
   };
 
